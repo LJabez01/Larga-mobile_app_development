@@ -13,7 +13,19 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Map',
+          title: 'Home',
+        }}
+      />
+      <Tabs.Screen
+        name="commuter"
+        options={{
+          title: 'Commuter',
+        }}
+      />
+      <Tabs.Screen
+        name="driver"
+        options={{
+          title: 'Driver',
         }}
       />
     </Tabs>
