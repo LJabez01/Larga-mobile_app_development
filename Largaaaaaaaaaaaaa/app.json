@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Largaaaaaaaaaaaaa",
+    "name": "Larga",
     "slug": "Largaaaaaaaaaaaaa",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "largaaaaaaaaaaaaa",
+    "scheme": "larga",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
