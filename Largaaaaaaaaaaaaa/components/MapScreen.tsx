@@ -8,28 +8,16 @@ type MapboxModule = {
   Camera: any;
 };
 
-declare global {
-  namespace NodeJS {
-    interface ProcessEnv {
-      MAPBOX_ACCESS_TOKEN?: string;
-    }
-  }
-}
-
 const STA_MARIA_BOUNDS = {
   ne: [121.03, 14.89],
   sw: [120.96, 14.8],
 };
 
-const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN || 'eyJ1Ijoia256aG4tbSIsImEiOiJjbW83ZHNid2gwNG92Mm9xdWU0a2R4N3FxIn0.cUji5CPkI3GyZqP6GJt1TA';
+const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoia256aG4tbSIsImEiOiJjbW83ZHNid2gwNG92Mm9xdWU0a2R4N3FxIn0.cUji5CPkI3GyZqP6GJt1TA';
 const PROFILE_IMAGE_URI = 'https://cdn.corenexis.com/files/c/6997128720.png';
 
 function getMapbox(): MapboxModule | null {
   try {
-    if (!MAPBOX_ACCESS_TOKEN) {
-      return null;
-    }
-
     const mapbox = require('@rnmapbox/maps').default as MapboxModule;
     mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
     return mapbox;
