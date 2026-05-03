@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDocPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(userDocPath(request.auth.uid))
+        && get(userDocPath(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isDriver() {
+      return signedIn()
+        && exists(userDocPath(request.auth.uid))
+        && get(userDocPath(request.auth.uid)).data.role == 'driver';
+    }
+
+    match /users/{uid} {
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == 'commuter'
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'role',
+          'email',
+          'displayName',
+          'phoneNumber',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      allow read: if isOwner(uid) || isAdmin();
+
+      allow update: if (isOwner(uid) || isAdmin())
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'role',
+          'email',
+          'displayName',
+          'phoneNumber',
+          'createdAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if isAdmin();
+    }
+
+    match /routes/{routeId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /activeTrips/{tripId} {
+      allow read: if signedIn();
+
+      allow create: if isDriver()
+        && request.resource.data.driverId == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.keys().hasOnly([
+          'driverId',
+          'routeId',
+          'status',
+          'startedAt',
+          'updatedAt'
+        ]);
+
+      allow update: if (isDriver() && resource.data.driverId == request.auth.uid)
+        || isAdmin();
+
+      allow delete: if (isDriver() && resource.data.driverId == request.auth.uid)
+        || isAdmin();
+    }
+
+    match /vehicleLocations/{driverId} {
+      allow read: if signedIn();
+
+      allow create, update: if ((isDriver() && isOwner(driverId)) || isAdmin())
+        && request.resource.data.driverId == driverId
+        && request.resource.data.keys().hasOnly([
+          'driverId',
+          'tripId',
+          'routeId',
+          'latitude',
+          'longitude',
+          'heading',
+          'speed',
+          'accuracy',
+          'recordedAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if isAdmin();
+    }
+
+    match /tripEvents/{eventId} {
+      allow create: if isDriver()
+        && request.resource.data.driverId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'tripId',
+          'driverId',
+          'routeId',
+          'eventType',
+          'recordedAt',
+          'metadata'
+        ]);
+
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.driverId == request.auth.uid);
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
