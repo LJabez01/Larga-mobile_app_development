@@ -18,6 +18,9 @@ const PROFILE_IMAGE_URI = 'https://cdn.corenexis.com/files/c/6997128720.png';
 
 function getMapbox(): MapboxModule | null {
   try {
+    if (!MAPBOX_ACCESS_TOKEN) {
+      return null;
+    }
     const mapbox = require('@rnmapbox/maps').default as MapboxModule;
     mapbox.setAccessToken(MAPBOX_ACCESS_TOKEN);
     return mapbox;
