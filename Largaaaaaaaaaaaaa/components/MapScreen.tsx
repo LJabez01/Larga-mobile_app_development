@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { View, TouchableOpacity, TextInput, Image, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { styles } from './map-screen.styles';
+import SettingsDrawer from './settings'; // adjust path if needed
 
 type MapboxModule = {
   setAccessToken: (token: string) => void;
@@ -16,7 +18,7 @@ const STA_MARIA_BOUNDS = {
 const env = process.env as unknown as Record<string, string | undefined>;
 
 const MAPBOX_ACCESS_TOKEN =
-  env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || env.EXPO_PUBLIC_MAPBOX_TOKEN || env.MAPBOX_TOKEN || '';
+  'pk.eyJ1IjoibDFicmFoIiwiYSI6ImNtbzhvcms4bTAwb2MyeXB3NzcyYW93Nm0ifQ.jpCK5yv2rGrEe54aBCKzyg';
 const PROFILE_IMAGE_URI = 'https://cdn.corenexis.com/files/c/6997128720.png';
 
 function getMapbox(): MapboxModule | null {
@@ -30,6 +32,7 @@ function getMapbox(): MapboxModule | null {
 }
 
 export default function MapScreen() {
+  const [drawerVisible, setDrawerVisible] = useState(false); // 👈 new
   const Mapbox = getMapbox();
 
   if (!Mapbox) {
@@ -65,7 +68,11 @@ export default function MapScreen() {
       </Mapbox.MapView>
 
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.iconButton}>
+        {/* 👇 opens the drawer */}
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => setDrawerVisible(true)}
+        >
           <Ionicons name="menu" size={24} color="#333" />
         </TouchableOpacity>
 
@@ -86,6 +93,12 @@ export default function MapScreen() {
           />
         </TouchableOpacity>
       </View>
+
+      {/* 👇 drawer rendered over everything */}
+      <SettingsDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+      />
     </View>
   );
 }
