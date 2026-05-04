@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 
 type Role = '' | 'Driver' | 'Commuter';
 type VehicleType = '' | 'Jeepney' | 'Bus';
+type IdDocumentType = '' | 'Passport' | 'National ID' | 'UMID' | 'School ID';
 
 const PRIMARY_COLOR = '#10B981';
 const SECONDARY_COLOR = '#059669';
@@ -33,11 +34,15 @@ export default function CreateAccountScreen() {
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('');
   const [plateNumber, setPlateNumber] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
+  const [idDocumentOpen, setIdDocumentOpen] = useState(false);
+  const [selectedIdDocumentType, setSelectedIdDocumentType] = useState<IdDocumentType>('');
+  const [idNumber, setIdNumber] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const isDriver = selectedRole === 'Driver';
+  const isCommuter = selectedRole === 'Commuter';
   const router = useRouter();
 
   return (
@@ -159,6 +164,9 @@ export default function CreateAccountScreen() {
                 onPress={() => {
                   setSelectedRole('Driver');
                   setRoleOpen(false);
+                  setIdDocumentOpen(false);
+                  setSelectedIdDocumentType('');
+                  setIdNumber('');
                 }}
               >
                 <MaterialCommunityIcons name="steering" size={18} color={PRIMARY_COLOR} />
@@ -173,6 +181,7 @@ export default function CreateAccountScreen() {
                   setSelectedVehicle('');
                   setPlateNumber('');
                   setLicenseNumber('');
+                  setVehicleOpen(false);
                 }}
               >
                 <Ionicons name="person-outline" size={18} color={PRIMARY_COLOR} />
@@ -196,7 +205,7 @@ export default function CreateAccountScreen() {
               }}
               activeOpacity={0.8}
             >
-              <MaterialCommunityIcons name="bus-front" size={20} color={PRIMARY_COLOR} style={styles.inputIcon} />
+              <Ionicons name="bus-outline" size={20} color={PRIMARY_COLOR} style={styles.inputIcon} />
               <Text style={[styles.input, !selectedVehicle && { color: '#9CA3AF' }]}>
                 {selectedVehicle || 'Select Vehicle Type'}
               </Text>
@@ -259,17 +268,66 @@ export default function CreateAccountScreen() {
               />
             </View>
 
-            {/* Upload License */}
-            <View style={styles.uploadSection}>
-              <Text style={styles.uploadLabel}>Driver's License</Text>
-              <TouchableOpacity style={styles.uploadButton} activeOpacity={0.8}>
-                <MaterialCommunityIcons name="cloud-upload-outline" size={24} color={PRIMARY_COLOR} />
-                <View style={styles.uploadTextContainer}>
-                  <Text style={styles.uploadTitle}>Upload your license</Text>
-                  <Text style={styles.uploadSubtext}>PDF, JPG, PNG up to 5MB</Text>
-                </View>
-              </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Commuter Section */}
+        {isCommuter && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Commuter Information</Text>
+
+            <TouchableOpacity
+              style={[styles.inputRow, idDocumentOpen && styles.inputRowActive]}
+              onPress={() => {
+                setIdDocumentOpen(!idDocumentOpen);
+                setVehicleOpen(false);
+                setRoleOpen(false);
+              }}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="card-account-details-outline" size={20} color={PRIMARY_COLOR} style={styles.inputIcon} />
+              <Text style={[styles.input, !selectedIdDocumentType && { color: '#9CA3AF' }]}>
+                {selectedIdDocumentType || 'Select ID Document Type'}
+              </Text>
+              <Ionicons
+                name={idDocumentOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={PRIMARY_COLOR}
+              />
+            </TouchableOpacity>
+
+            {idDocumentOpen && (
+              <View style={styles.dropdown}>
+                {(['Passport', 'National ID', 'UMID', 'School ID'] as IdDocumentType[]).map((docType, index) => (
+                  <React.Fragment key={docType}>
+                    <TouchableOpacity
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setSelectedIdDocumentType(docType);
+                        setIdDocumentOpen(false);
+                      }}
+                    >
+                      <Ionicons name="id-card-outline" size={18} color={PRIMARY_COLOR} />
+                      <Text style={styles.dropdownText}>{docType}</Text>
+                    </TouchableOpacity>
+                    {index < 3 && <View style={styles.dropdownDivider} />}
+                  </React.Fragment>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.inputRow}>
+              <FontAwesome6 name="hashtag" size={16} color={PRIMARY_COLOR} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="ID Number"
+                placeholderTextColor="#9CA3AF"
+                value={idNumber}
+                onChangeText={setIdNumber}
+                autoCapitalize="characters"
+              />
             </View>
+
           </View>
         )}
 
@@ -293,7 +351,7 @@ export default function CreateAccountScreen() {
         </View>
 
         {/* Sign Up Button */}
-        <TouchableOpacity style={styles.signUpButton} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.signUpButton} activeOpacity={0.85} onPress={() => router.push('/login')}>
           <Text style={styles.signUpText}>Create Account</Text>
           <Ionicons name="arrow-forward" size={20} color="#fff" />
         </TouchableOpacity>

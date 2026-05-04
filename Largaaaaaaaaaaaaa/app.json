@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.larga.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Allow Larga to access your photo library so you can upload documents."
       }
     },
     "android": {
