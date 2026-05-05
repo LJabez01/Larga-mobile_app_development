@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View, TouchableOpacity, TextInput, Image, Text } from 'react-native';
+import { View, TouchableOpacity, TextInput, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { styles } from './map-screen.styles';
-import SettingsDrawer from './settings'; // adjust path if needed
+import SettingsDrawer from '../settings';
 
 type MapboxModule = {
   setAccessToken: (token: string) => void;
@@ -15,11 +15,12 @@ const STA_MARIA_BOUNDS = {
   sw: [120.96, 14.8],
 };
 
-const env = process.env as unknown as Record<string, string | undefined>;
-
 const MAPBOX_ACCESS_TOKEN =
   'pk.eyJ1IjoibDFicmFoIiwiYSI6ImNtbzhvcms4bTAwb2MyeXB3NzcyYW93Nm0ifQ.jpCK5yv2rGrEe54aBCKzyg';
-const PROFILE_IMAGE_URI = 'https://cdn.corenexis.com/files/c/6997128720.png';
+const MAP_STYLE_URL = 'mapbox://styles/mapbox/standard';
+const INITIAL_CENTER_COORDINATE = [120.9991, 14.8463] as const;
+const SEARCH_PLACEHOLDER = 'Select route';
+const SEARCH_PLACEHOLDER_COLOR = '#94a3b8';
 
 function getMapbox(): MapboxModule | null {
   try {
@@ -32,16 +33,22 @@ function getMapbox(): MapboxModule | null {
 }
 
 export default function MapScreen() {
-  const [drawerVisible, setDrawerVisible] = useState(false); // 👈 new
+  const [drawerVisible, setDrawerVisible] = useState(false);
   const Mapbox = getMapbox();
 
   if (!Mapbox) {
     return (
       <View style={styles.fallbackContainer}>
-        <Text style={styles.fallbackTitle}>Map view is unavailable</Text>
-        <Text style={styles.fallbackText}>
-          This build does not include native Mapbox support. Use a development build or EAS build to enable map rendering.
-        </Text>
+        <View style={styles.fallbackCard}>
+          <View style={styles.fallbackIconWrap}>
+            <Ionicons name="map-outline" size={28} color="#158251" />
+          </View>
+          <Text style={styles.fallbackEyebrow}>Map Experience</Text>
+          <Text style={styles.fallbackTitle}>Map view is unavailable</Text>
+          <Text style={styles.fallbackText}>
+            This build does not include native Mapbox support. Use a development build or EAS build to enable map rendering.
+          </Text>
+        </View>
       </View>
     );
   }
@@ -50,7 +57,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <Mapbox.MapView
         style={styles.map}
-        styleURL="mapbox://styles/mapbox/standard"
+        styleURL={MAP_STYLE_URL}
         scaleBarEnabled={false}
         logoEnabled={false}
         compassEnabled={false}
@@ -58,7 +65,7 @@ export default function MapScreen() {
       >
         <Mapbox.Camera
           zoomLevel={15}
-          centerCoordinate={[120.9991, 14.8463]}
+          centerCoordinate={INITIAL_CENTER_COORDINATE}
           animationMode="flyTo"
           minZoomLevel={11}
           maxZoomLevel={18}
@@ -67,34 +74,30 @@ export default function MapScreen() {
         />
       </Mapbox.MapView>
 
-      <View style={styles.topBar}>
-        {/* 👇 opens the drawer */}
+      <View style={styles.topBarRow}>
         <TouchableOpacity
           style={styles.iconButton}
           onPress={() => setDrawerVisible(true)}
+          activeOpacity={0.85}
         >
-          <Ionicons name="menu" size={24} color="#333" />
+          <Ionicons name="menu" size={24} color="#0f172a" />
         </TouchableOpacity>
 
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#999" />
+          <Ionicons name="search" size={19} color="#6b7280" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Select Route..."
-            placeholderTextColor="#999"
+            placeholder={SEARCH_PLACEHOLDER}
+            placeholderTextColor={SEARCH_PLACEHOLDER_COLOR}
           />
         </View>
 
-        <TouchableOpacity style={styles.iconButton}>
-          <Image
-            source={{ uri: PROFILE_IMAGE_URI }}
-            style={styles.profileImage}
-            resizeMode="contain"
-          />
+        <TouchableOpacity style={styles.iconButton} activeOpacity={0.85}>
+          <Ionicons name="notifications-outline" size={22} color="#0f172a" />
+          <View style={styles.notificationDot} />
         </TouchableOpacity>
       </View>
 
-      {/* 👇 drawer rendered over everything */}
       <SettingsDrawer
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}

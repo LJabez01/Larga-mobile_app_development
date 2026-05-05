@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.larga.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "Allow Larga to access your photo library so you can upload documents."
+        "NSPhotoLibraryUsageDescription": "Allow Larga to access your photo library so you can upload documents.",
+        "NSCameraUsageDescription": "Allow Larga to access your camera so you can take a photo of your ID."
       }
     },
     "android": {
@@ -28,7 +29,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.larga.app"
+      "package": "com.larga.app",
+      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
     },
     "web": {
       "bundler": "metro",
@@ -37,6 +39,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Larga to access your photo library so you can upload documents.",
+          "cameraPermission": "Allow Larga to access your camera so you can take a photo of your ID."
+        }
+      ],
       [
         "@rnmapbox/maps",
         {}
