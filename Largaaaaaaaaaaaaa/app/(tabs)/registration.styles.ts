@@ -7,12 +7,16 @@ const TEXT_COLOR = '#1F2937';
 const BORDER_COLOR = '#E5E7EB';
 
 export default StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
   content: {
-    paddingBottom: 48,
+    paddingBottom: 72,
   },
   header: {
     backgroundColor: PRIMARY_COLOR,

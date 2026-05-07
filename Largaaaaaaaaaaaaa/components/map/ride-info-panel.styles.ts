@@ -1,0 +1,141 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-end',
+  },
+  overlayBackdrop: {
+    flex: 1,
+  },
+  panelWrapper: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+  },
+  panelContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 28,
+    borderWidth: 4,
+    borderColor: '#dce0df',
+    flexDirection: 'row',
+    overflow: 'hidden',
+    height: 260,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: -12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 20,
+  },
+  leftSection: {
+    flex: 1.5,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  priceBox: {
+    width: '100%',
+    borderWidth: 2.5,
+    borderColor: '#e5e7e7',
+    borderRadius: 16,
+    paddingVertical: 22,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  priceLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0f172a',
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: 14,
+  },
+  priceDisplayWrapper: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  priceAmount: {
+    fontSize: 52,
+    fontWeight: '900',
+    color: '#0f172a',
+    lineHeight: 56,
+  },
+  pesoText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0f172a',
+    letterSpacing: 0.8,
+    marginTop: 1,
+  },
+  priceDivider: {
+    width: '85%',
+    height: 1,
+    backgroundColor: '#d1d5db',
+    marginVertical: 6,
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 8,
+    marginLeft: 4,
+    justifyContent: 'center',
+  },
+  priceButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
+    backgroundColor: '#ffffff',
+  },
+  priceButtonActive: {
+    borderColor: '#0f701c',
+    backgroundColor: '#ffffff',
+  },
+  priceButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  priceButtonTextActive: {
+    color: '#0f172a',
+  },
+  divider: {
+    width: 2.5,
+    backgroundColor: '#b1b1b1',
+    marginVertical: 16,
+  },
+  rightSection: {
+    flex: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    justifyContent: 'space-evenly',
+  },
+  infoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10b981',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 24,
+    gap: 14,
+  },
+  pillTextWrapper: {
+    flex: 1,
+  },
+  pillLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#ffffff',
+  },
+  pillLabelBold: {
+    fontWeight: '700',
+  },
+  pillValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginTop: 1,
+  },
+});

@@ -5,12 +5,12 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
-  Alert,
+ Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome6 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import styles from './registration.styles';
 
 type Role = '' | 'Driver' | 'Commuter';
@@ -81,27 +81,28 @@ export default function CreateAccountScreen() {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header Section */}
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Ionicons name="checkmark-done-outline" size={40} color="#fff" />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header Section */}
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoCircle}>
+              <Ionicons name="checkmark-done-outline" size={40} color="#fff" />
+            </View>
           </View>
+          <Text style={styles.headerText}>Create Your Account</Text>
+          <Text style={styles.headerSubtext}>Join us today and start your journey</Text>
         </View>
-        <Text style={styles.headerText}>Create Your Account</Text>
-        <Text style={styles.headerSubtext}>Join us today and start your journey</Text>
-      </View>
 
-      <View style={styles.formContainer}>
-        {/* Basic Info Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Basic Information</Text>
+        <View style={styles.formContainer}>
+          {/* Basic Info Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Basic Information</Text>
 
           <View style={styles.inputRow}>
             <Ionicons name="person-circle-outline" size={20} color={PRIMARY_COLOR} style={styles.inputIcon} />
@@ -157,11 +158,11 @@ export default function CreateAccountScreen() {
               <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={20} color={PRIMARY_COLOR} />
             </TouchableOpacity>
           </View>
-        </View>
+          </View>
 
-        {/* Role Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Type</Text>
+          {/* Role Selection */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account Type</Text>
 
           <TouchableOpacity
             style={[styles.inputRow, roleOpen && styles.inputRowActive]}
@@ -208,12 +209,12 @@ export default function CreateAccountScreen() {
               </TouchableOpacity>
             </View>
           )}
-        </View>
+          </View>
 
-        {/* Driver Section */}
-        {isDriver && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Driver Information</Text>
+          {/* Driver Section */}
+          {isDriver && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Driver Information</Text>
 
             <TouchableOpacity
               style={[styles.inputRow, vehicleOpen && styles.inputRowActive]}
@@ -294,52 +295,45 @@ export default function CreateAccountScreen() {
                   </Text>
                 </View>
               </TouchableOpacity>
-
-              {idImage && (
-                <Image
-                  source={{ uri: idImage }}
-                  style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 14 }}
-                  resizeMode="cover"
-                />
-              )}
             </View>
+            </View>
+          )}
+
+          {/* Terms & Conditions */}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setAgreed(!agreed)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
+                {agreed && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </View>
+              <Text style={styles.termsText}>
+                I agree to the{' '}
+                <Text style={styles.termsLink}>Terms and Conditions</Text>
+                {' '}and{' '}
+                <Text style={styles.termsLink}>Privacy Policy</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
-        )}
 
-        {/* Terms & Conditions */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={() => setAgreed(!agreed)}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
-              {agreed && <Ionicons name="checkmark" size={14} color="#fff" />}
-            </View>
-            <Text style={styles.termsText}>
-              I agree to the{' '}
-              <Text style={styles.termsLink}>Terms and Conditions</Text>
-              {' '}and{' '}
-              <Text style={styles.termsLink}>Privacy Policy</Text>
-            </Text>
+          {/* Sign Up Button */}
+          <TouchableOpacity style={styles.signUpButton} activeOpacity={0.85} onPress={() => router.push('/login')}>
+            <Text style={styles.signUpText}>Create Account</Text>
+            <Ionicons name="arrow-forward" size={20} color="#fff" />
           </TouchableOpacity>
-        </View>
 
-        {/* Sign Up Button */}
-        <TouchableOpacity style={styles.signUpButton} activeOpacity={0.85} onPress={() => router.push('/login')}>
-          <Text style={styles.signUpText}>Create Account</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
-        </TouchableOpacity>
-
-        {/* Sign In Link */}
-        <View style={styles.signInContainer}>
-          <Text style={styles.signInPrompt}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.push('/login')}>
-            <Text style={styles.signInLink}>Sign in here</Text>
-          </TouchableOpacity>
+          {/* Sign In Link */}
+          <View style={styles.signInContainer}>
+            <Text style={styles.signInPrompt}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.push('/login')}>
+              <Text style={styles.signInLink}>Sign in here</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
