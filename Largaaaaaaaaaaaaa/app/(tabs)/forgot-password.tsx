@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,18 +10,32 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import FormErrorText from '../../components/FormErrorText';
+import { validateForgotPasswordForm } from '../../validations/validation';
 
 const PRIMARY = '#10B981';
 const BG_LIGHT = '#F7FEF8';
 const TEXT = '#0F172A';
+const ERROR_COLOR = '#EF4444';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const router = useRouter();
 
+  // Real-time validation
+  const validation = useMemo(
+    () => validateForgotPasswordForm({ email }),
+    [email]
+  );
+
   const handleSend = () => {
-    setSent(true);
+    setSubmitted(true);
+    if (validation.isValid) {
+      setSent(true);
+    }
   };
 
   return (
@@ -39,17 +53,26 @@ export default function ForgotPasswordScreen() {
       <View style={styles.content}>
         {!sent ? (
           <>
-            <View style={styles.inputRow}>
-              <MaterialCommunityIcons name="email-outline" size={20} color={PRIMARY} style={styles.icon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email address"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-              />
+            <View>
+              <View
+                style={[
+                  styles.inputRow,
+                  submitted && validation.fieldErrors?.email && { borderColor: ERROR_COLOR, borderWidth: 1.2 },
+                ]}
+              >
+                <MaterialCommunityIcons name="email-outline" size={20} color={PRIMARY} style={styles.icon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email address"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                  onBlur={() => setTouched({ ...touched, email: true })}
+                  autoCapitalize="none"
+                />
+              </View>
+              {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
             </View>
 
             <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.85}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,35 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import FormErrorText from '../../components/FormErrorText';
+import { validateLoginForm } from '../../validations/validation';
 
 const PRIMARY = '#10B981';
 const ACCENT = '#059669';
 const BG_LIGHT = '#F0FDF4';
 const TEXT = '#111827';
+const ERROR_COLOR = '#EF4444';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const router = useRouter();
+
+  // Real-time validation
+  const validation = useMemo(
+    () => validateLoginForm({ email, password }),
+    [email, password]
+  );
+
+  const handleLogin = () => {
+    setSubmitted(true);
+    if (validation.isValid) {
+      router.push('/guideline');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -37,39 +55,60 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.form}>
-        <View style={styles.inputRow}>
-          <MaterialCommunityIcons name="email-outline" size={20} color={PRIMARY} style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#9CA3AF"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+        <View>
+          <View
+            style={[
+              styles.inputRow,
+              submitted && validation.fieldErrors?.email && { borderColor: ERROR_COLOR, borderWidth: 1.5 },
+            ]}
+          >
+            <MaterialCommunityIcons name="email-outline" size={20} color={PRIMARY} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#9CA3AF"
+              value={email}
+              onChangeText={setEmail}
+              onBlur={() => setTouched({ ...touched, email: true })}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+          {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
         </View>
 
-        <View style={styles.inputRow}>
-          <Ionicons name="lock-closed-outline" size={20} color={PRIMARY} style={styles.icon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#9CA3AF"
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-          />
-          <TouchableOpacity onPress={() => setShowPassword((s) => !s)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={20} color={PRIMARY} />
-          </TouchableOpacity>
+        <View>
+          <View
+            style={[
+              styles.inputRow,
+              submitted && validation.fieldErrors?.password && { borderColor: ERROR_COLOR, borderWidth: 1.5 },
+            ]}
+          >
+            <Ionicons name="lock-closed-outline" size={20} color={PRIMARY} style={styles.icon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+              onBlur={() => setTouched({ ...touched, password: true })}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword((s) => !s)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={20} color={PRIMARY} />
+            </TouchableOpacity>
+          </View>
+          {submitted && <FormErrorText error={validation.fieldErrors?.password} />}
         </View>
 
         <TouchableOpacity style={styles.forgotRow} onPress={() => router.push('/forgot-password')}>
           <Text style={styles.forgot}>Forgot password?</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.loginButton} onPress={() => router.push('/driver')} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin} activeOpacity={0.85}>
           <Text style={styles.loginText}>Sign In</Text>
           <Ionicons name="arrow-forward" size={18} color="#fff" />
         </TouchableOpacity>

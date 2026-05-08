@@ -17,6 +17,30 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="login"
+        options={{
+          title: 'Login',
+        }}
+      />
+      <Tabs.Screen
+        name="registration"
+        options={{
+          title: 'Registration',
+        }}
+      />
+      <Tabs.Screen
+        name="forgot-password"
+        options={{
+          title: 'Forgot Password',
+        }}
+      />
+      <Tabs.Screen
+        name="guideline"
+        options={{
+          title: 'Guideline',
+        }}
+      />
+      <Tabs.Screen
         name="commuter"
         options={{
           title: 'Commuter',
@@ -26,6 +50,12 @@ export default function TabLayout() {
         name="driver"
         options={{
           title: 'Driver',
+        }}
+      />
+      <Tabs.Screen
+        name="two"
+        options={{
+          title: 'Two',
         }}
       />
     </Tabs>
