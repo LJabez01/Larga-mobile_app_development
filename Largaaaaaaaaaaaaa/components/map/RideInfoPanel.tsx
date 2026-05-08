@@ -1,7 +1,11 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, Modal } from 'react-native';
+import { View, TouchableOpacity, Text, Modal, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { styles } from './ride-info-panel.styles';
+
+const { width } = Dimensions.get('window');
+const BASE_WIDTH = 700;
+const scale = (size: number) => (width / BASE_WIDTH) * size;
 
 type RideInfoPanelProps = {
   visible: boolean;
@@ -30,6 +34,7 @@ export default function RideInfoPanel({ visible, vehicleType, onClose }: RideInf
   if (!vehicleType || !RIDE_INFO[vehicleType]) return null;
 
   const rideData = RIDE_INFO[vehicleType];
+  const iconSize = scale(20);
 
   return (
     <Modal
@@ -44,7 +49,7 @@ export default function RideInfoPanel({ visible, vehicleType, onClose }: RideInf
 
         <View style={styles.panelWrapper}>
           <View style={styles.panelContainer}>
-            {/* Left Section - Price with Purple Border */}
+            {/* Left Section */}
             <View style={styles.leftSection}>
               <View style={styles.priceBox}>
                 <Text style={styles.priceLabel}>Fair Price (Based on your Drop Off Location)</Text>
@@ -69,13 +74,13 @@ export default function RideInfoPanel({ visible, vehicleType, onClose }: RideInf
               </View>
             </View>
 
-            {/* Black Divider */}
+            {/* Divider */}
             <View style={styles.divider} />
 
-            {/* Right Section - Info Pills */}
+            {/* Right Section */}
             <View style={styles.rightSection}>
               <View style={styles.infoPill}>
-                <Ionicons name="location" size={20} color="#ffffff" />
+                <Ionicons name="location" size={iconSize} color="#ffffff" />
                 <View style={styles.pillTextWrapper}>
                   <Text style={styles.pillLabel}>
                     <Text style={styles.pillLabelBold}>Route: </Text>
@@ -85,7 +90,7 @@ export default function RideInfoPanel({ visible, vehicleType, onClose }: RideInf
               </View>
 
               <View style={styles.infoPill}>
-                <Ionicons name="speedometer" size={20} color="#ffffff" />
+                <Ionicons name="speedometer" size={iconSize} color="#ffffff" />
                 <View style={styles.pillTextWrapper}>
                   <Text style={styles.pillLabel}>
                     <Text style={styles.pillLabelBold}>Speed: </Text>
@@ -95,7 +100,7 @@ export default function RideInfoPanel({ visible, vehicleType, onClose }: RideInf
               </View>
 
               <View style={styles.infoPill}>
-                <Ionicons name="map" size={20} color="#ffffff" />
+                <Ionicons name="map" size={iconSize} color="#ffffff" />
                 <View style={styles.pillTextWrapper}>
                   <Text style={styles.pillLabel}>
                     <Text style={styles.pillLabelBold}>Distance: </Text>
@@ -105,7 +110,7 @@ export default function RideInfoPanel({ visible, vehicleType, onClose }: RideInf
               </View>
 
               <View style={styles.infoPill}>
-                <Ionicons name="time" size={20} color="#ffffff" />
+                <Ionicons name="time" size={iconSize} color="#ffffff" />
                 <View style={styles.pillTextWrapper}>
                   <Text style={styles.pillLabel}>
                     <Text style={styles.pillLabelBold}>ETA: </Text>
