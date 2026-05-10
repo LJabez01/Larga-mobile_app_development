@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome6 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -45,6 +46,8 @@ export default function CreateAccountScreen() {
   const [showCropper, setShowCropper] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const isDriver = selectedRole === 'Driver';
   const router = useRouter();
@@ -151,7 +154,8 @@ export default function CreateAccountScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Basic Information</Text>
 
-            <View>
+            <View style={styles.inputGroup}>
+              {submitted && <FormErrorText error={validation.fieldErrors?.username} />}
               <View
                 style={[
                   styles.inputRow,
@@ -169,10 +173,10 @@ export default function CreateAccountScreen() {
                   autoCapitalize="none"
                 />
               </View>
-              {submitted && <FormErrorText error={validation.fieldErrors?.username} />}
             </View>
 
-            <View>
+            <View style={styles.inputGroup}>
+              {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
               <View
                 style={[
                   styles.inputRow,
@@ -191,10 +195,10 @@ export default function CreateAccountScreen() {
                   autoCapitalize="none"
                 />
               </View>
-              {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
             </View>
 
-            <View>
+            <View style={styles.inputGroup}>
+              {submitted && <FormErrorText error={validation.fieldErrors?.password} />}
               <View
                 style={[
                   styles.inputRow,
@@ -218,10 +222,10 @@ export default function CreateAccountScreen() {
                   <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={20} color={PRIMARY_COLOR} />
                 </TouchableOpacity>
               </View>
-              {submitted && <FormErrorText error={validation.fieldErrors?.password} />}
             </View>
 
-            <View>
+            <View style={styles.inputGroup}>
+              {submitted && <FormErrorText error={validation.fieldErrors?.confirmPassword} />}
               <View
                 style={[
                   styles.inputRow,
@@ -245,7 +249,6 @@ export default function CreateAccountScreen() {
                   <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={20} color={PRIMARY_COLOR} />
                 </TouchableOpacity>
               </View>
-              {submitted && <FormErrorText error={validation.fieldErrors?.confirmPassword} />}
             </View>
           </View>
 
@@ -253,7 +256,8 @@ export default function CreateAccountScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account Type</Text>
 
-            <View>
+            <View style={styles.inputGroup}>
+              {submitted && <FormErrorText error={validation.fieldErrors?.selectedRole} />}
               <TouchableOpacity
                 style={[
                   styles.inputRow,
@@ -272,7 +276,6 @@ export default function CreateAccountScreen() {
                 </Text>
                 <Ionicons name={roleOpen ? 'chevron-up' : 'chevron-down'} size={20} color={PRIMARY_COLOR} />
               </TouchableOpacity>
-              {submitted && <FormErrorText error={validation.fieldErrors?.selectedRole} />}
             </View>
 
             {roleOpen && (
@@ -312,7 +315,8 @@ export default function CreateAccountScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Driver Information</Text>
 
-              <View>
+              <View style={styles.inputGroup}>
+                {submitted && <FormErrorText error={validation.fieldErrors?.selectedVehicle} />}
                 <TouchableOpacity
                   style={[
                     styles.inputRow,
@@ -331,7 +335,6 @@ export default function CreateAccountScreen() {
                   </Text>
                   <Ionicons name={vehicleOpen ? 'chevron-up' : 'chevron-down'} size={20} color={PRIMARY_COLOR} />
                 </TouchableOpacity>
-                {submitted && <FormErrorText error={validation.fieldErrors?.selectedVehicle} />}
               </View>
 
               {vehicleOpen && (
@@ -360,7 +363,8 @@ export default function CreateAccountScreen() {
                 </View>
               )}
 
-              <View>
+              <View style={styles.inputGroup}>
+                {submitted && <FormErrorText error={validation.fieldErrors?.plateNumber} />}
                 <View
                   style={[
                     styles.inputRow,
@@ -378,10 +382,10 @@ export default function CreateAccountScreen() {
                     autoCapitalize="characters"
                   />
                 </View>
-                {submitted && <FormErrorText error={validation.fieldErrors?.plateNumber} />}
               </View>
 
-              <View>
+              <View style={styles.inputGroup}>
+                {submitted && <FormErrorText error={validation.fieldErrors?.licenseNumber} />}
                 <View
                   style={[
                     styles.inputRow,
@@ -399,12 +403,12 @@ export default function CreateAccountScreen() {
                     autoCapitalize="characters"
                   />
                 </View>
-                {submitted && <FormErrorText error={validation.fieldErrors?.licenseNumber} />}
               </View>
 
               {/* Upload ID */}
               <View style={styles.uploadSection}>
                 <Text style={styles.uploadLabel}>Upload ID</Text>
+                {submitted && <FormErrorText error={validation.fieldErrors?.idImage} />}
                 <TouchableOpacity
                   style={[
                     styles.uploadButton,
@@ -423,7 +427,6 @@ export default function CreateAccountScreen() {
                     </Text>
                   </View>
                 </TouchableOpacity>
-                {submitted && <FormErrorText error={validation.fieldErrors?.idImage} />}
               </View>
             </View>
           )}
@@ -432,17 +435,14 @@ export default function CreateAccountScreen() {
           <View style={styles.section}>
             <TouchableOpacity
               style={styles.checkboxRow}
-              onPress={() => setAgreed(!agreed)}
+              onPress={() => setShowTerms(true)}
               activeOpacity={0.8}
             >
               <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
                 {agreed && <Ionicons name="checkmark" size={14} color="#fff" />}
               </View>
               <Text style={styles.termsText}>
-                I agree to the{' '}
-                <Text style={styles.termsLink}>Terms and Conditions</Text>
-                {' '}and{' '}
-                <Text style={styles.termsLink}>Privacy Policy</Text>
+                I agree to the Terms and Conditions and Privacy Policy
               </Text>
             </TouchableOpacity>
             {submitted && <FormErrorText error={validation.fieldErrors?.agreed} />}
@@ -475,7 +475,90 @@ export default function CreateAccountScreen() {
         }}
         aspectRatio={{ width: 85, height: 54 }}
       />
+
+      {/* Terms Modal */}
+      <Modal visible={showTerms} animationType="slide" transparent={false}>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity 
+              onPress={() => {
+                setShowTerms(false);
+                setShowPrivacy(true);
+              }} 
+              style={styles.closeBtn}
+            >
+              <Ionicons name="close" size={24} color="#111827" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Terms and Conditions</Text>
+            <View style={styles.closeBtn} />
+          </View>
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <Text style={styles.modalText}>
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+            </Text>
+
+            <Text style={styles.modalText}>
+              Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+            </Text>
+
+            <Text style={styles.modalText}>
+              Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
+            </Text>
+
+            <Text style={styles.modalText}>
+              Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.
+            </Text>
+
+            <Text style={styles.modalText}>
+              Sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur.
+            </Text>
+
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Privacy Policy Modal */}
+      <Modal visible={showPrivacy} animationType="slide" transparent={false}>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity 
+              onPress={() => {
+                setShowPrivacy(false);
+                setAgreed(true);
+              }} 
+              style={styles.closeBtn}
+            >
+              <Ionicons name="close" size={24} color="#111827" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Privacy Policy</Text>
+            <View style={styles.closeBtn} />
+          </View>
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <Text style={styles.modalText}>
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+            </Text>
+
+            <Text style={styles.modalText}>
+              Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+            </Text>
+
+            <Text style={styles.modalText}>
+              Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
+            </Text>
+
+            <Text style={styles.modalText}>
+              Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit.
+            </Text>
+
+            <Text style={styles.modalText}>
+              Sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur.
+            </Text>
+
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
-

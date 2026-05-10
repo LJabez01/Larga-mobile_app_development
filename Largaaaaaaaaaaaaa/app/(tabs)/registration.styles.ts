@@ -70,6 +70,9 @@ export default StyleSheet.create({
     textTransform: 'uppercase',
     opacity: 0.8,
   },
+  inputGroup: {
+    marginBottom: 14,
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -79,7 +82,6 @@ export default StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 14 : 12,
     backgroundColor: '#FFFFFF',
-    marginBottom: 14,
     overflow: 'hidden',
   },
   inputRowActive: {
@@ -232,5 +234,48 @@ export default StyleSheet.create({
     color: PRIMARY_COLOR,
     fontWeight: '700',
     fontSize: 14,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: -0.3,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  modalSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: PRIMARY_COLOR,
+    marginBottom: 12,
+    marginTop: 20,
+  },
+  modalText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 22,
+    marginBottom: 16,
   },
 });

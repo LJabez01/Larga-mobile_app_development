@@ -55,7 +55,8 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.form}>
-        <View>
+        <View style={styles.inputGroup}>
+          {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
           <View
             style={[
               styles.inputRow,
@@ -74,10 +75,10 @@ export default function LoginScreen() {
               autoCapitalize="none"
             />
           </View>
-          {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
         </View>
 
-        <View>
+        <View style={styles.inputGroup}>
+          {submitted && <FormErrorText error={validation.fieldErrors?.password} />}
           <View
             style={[
               styles.inputRow,
@@ -101,7 +102,6 @@ export default function LoginScreen() {
               <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={20} color={PRIMARY} />
             </TouchableOpacity>
           </View>
-          {submitted && <FormErrorText error={validation.fieldErrors?.password} />}
         </View>
 
         <TouchableOpacity style={styles.forgotRow} onPress={() => router.push('/forgot-password')}>
@@ -145,6 +145,9 @@ const styles = StyleSheet.create({
   subtitle: { color: '#D1FAE5', fontSize: 13, fontWeight: '600' },
 
   form: { paddingHorizontal: 20, paddingTop: 28 },
+  inputGroup: {
+    marginBottom: 14,
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -154,7 +157,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 14 : 12,
     backgroundColor: BG_LIGHT,
-    marginBottom: 14,
   },
   icon: { marginRight: 12 },
   input: { flex: 1, fontSize: 15, color: TEXT, fontWeight: '500' },

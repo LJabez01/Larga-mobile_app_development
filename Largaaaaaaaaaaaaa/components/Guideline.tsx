@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Dimensions,
   StatusBar,
   SafeAreaView,
+  Animated,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -29,22 +30,22 @@ interface Slide {
 const slides: Slide[] = [
   {
     id: 1,
-    title: 'No More Long Waitings',
-    description: 'Book your ride instantly and get picked up within minutes. No more waiting in long queues at bus stops.',
+    title: 'Real-Time Vehicle Tracking',
+    description: 'See exactly where your jeepney or bus is located with live GPS updates. Know when it arrives, every second.',
     icon: 'location-outline',
     gradient: ['#3B82F6', '#1E40AF'],
   },
   {
     id: 2,
-    title: 'Effortless & Reliable Journey Tracking',
-    description: 'Track your journey in real-time with live GPS updates and accurate arrival estimates every step of the way.',
+    title: 'Smart Route Navigation',
+    description: 'Browse active routes and track vehicles moving through Santa Maria in real-time. Stay connected to your journey.',
     icon: 'map-outline',
     gradient: ['#10B981', '#10B981'],
   },
   {
     id: 3,
-    title: 'Real Time Notifications',
-    description: 'Receive instant notifications about your booking status, driver location, and important updates.',
+    title: 'Instant Notifications',
+    description: 'Get notified about vehicle locations, driver status, and route updates instantly. Never miss a moment.',
     icon: 'notifications-outline',
     gradient: ['#8B5CF6', '#6D28D9'],
   },
@@ -52,12 +53,51 @@ const slides: Slide[] = [
 
 interface GuidelineProps {
   onComplete?: () => void;
-  onSkip?: () => void;
 }
 
-export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
+export default function Guideline({ onComplete }: GuidelineProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const titleTranslate = useRef(new Animated.Value(20)).current;
+  const descriptionOpacity = useRef(new Animated.Value(0)).current;
+  const descriptionTranslate = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    // Reset animations
+    titleOpacity.setValue(0);
+    titleTranslate.setValue(20);
+    descriptionOpacity.setValue(0);
+    descriptionTranslate.setValue(20);
+
+    // Trigger animations sequentially
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(titleOpacity, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(titleTranslate, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(descriptionOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(descriptionTranslate, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [currentSlide]);
 
 
 
@@ -70,14 +110,6 @@ export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
       } else {
         router.push('/driver' as any);
       }
-    }
-  };
-
-  const handleSkip = () => {
-    if (onSkip) {
-      onSkip();
-    } else {
-      router.push('/components/map' as any);
     }
   };
 
@@ -94,13 +126,6 @@ export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
         end={{ x: 1, y: 1 }}
         style={styles.bannerSection}
       >
-        <TouchableOpacity
-          onPress={handleSkip}
-          style={styles.skipButtonTop}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
         <View style={styles.centerFlex}>
           <View style={styles.iconContainer}>
             <Ionicons name={slide.icon as any} size={110} color="#fff" />
@@ -112,8 +137,28 @@ export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
       <View style={styles.contentSection}>
         {/* Text Content */}
         <View style={styles.textContainer}>
-          <Text style={styles.title}>{slide.title}</Text>
-          <Text style={styles.description}>{slide.description}</Text>
+          <Animated.Text
+            style={[
+              styles.title,
+              {
+                opacity: titleOpacity,
+                transform: [{ translateY: titleTranslate }],
+              },
+            ]}
+          >
+            {slide.title}
+          </Animated.Text>
+          <Animated.Text
+            style={[
+              styles.description,
+              {
+                opacity: descriptionOpacity,
+                transform: [{ translateY: descriptionTranslate }],
+              },
+            ]}
+          >
+            {slide.description}
+          </Animated.Text>
         </View>
 
         {/* Progress Indicators */}
@@ -167,21 +212,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingTop: 8,
   },
-  skipButtonTop: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignSelf: 'flex-end',
-    marginRight: 16,
-    marginTop: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 8,
-  },
-  skipText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
+
   bannerSection: {
     height: '50%',
     justifyContent: 'flex-start',
@@ -240,25 +271,8 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  buttonSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  skipButtonBottom: {
-    flex: 0.25,
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f0f0f0',
-  },
-  skipButtonText: {
-    color: '#6B7280',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+
+
   nextButton: {
     paddingVertical: 15,
     borderRadius: 12,

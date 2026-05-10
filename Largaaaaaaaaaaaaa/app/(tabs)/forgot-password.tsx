@@ -53,7 +53,8 @@ export default function ForgotPasswordScreen() {
       <View style={styles.content}>
         {!sent ? (
           <>
-            <View>
+            <View style={styles.inputGroup}>
+              {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
               <View
                 style={[
                   styles.inputRow,
@@ -72,7 +73,6 @@ export default function ForgotPasswordScreen() {
                   autoCapitalize="none"
                 />
               </View>
-              {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
             </View>
 
             <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.85}>
@@ -117,6 +117,9 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', paddingHorizontal: 40 },
 
   content: { paddingHorizontal: 20, paddingTop: 28 },
+  inputGroup: {
+    marginBottom: 16,
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -126,7 +129,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'ios' ? 14 : 12,
     backgroundColor: BG_LIGHT,
-    marginBottom: 16,
   },
   icon: { marginRight: 12 },
   input: { flex: 1, fontSize: 15, color: TEXT, fontWeight: '500' },
