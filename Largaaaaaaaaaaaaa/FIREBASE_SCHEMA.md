@@ -15,8 +15,9 @@ This document defines the first backend-safe Firebase structure for the LARGA MV
 - `admin`: future role for route management, moderation, and analytics access.
 
 ## Role assignment
-- Client-created user documents default to `commuter`.
+- Public signup creates only `commuter` user documents.
 - `driver` and `admin` should be assigned by a trusted path such as Firebase Console, Admin SDK, or a future protected admin tool.
+- Promotion from `commuter` to `driver` or `admin` stays manual through a trusted operator path.
 - Do not let public client code freely promote users into `driver` or `admin`.
 
 ## Collections
@@ -36,17 +37,21 @@ Suggested fields:
 Rules intent:
 - User can create and read their own document.
 - User can update only safe profile fields.
+- Public create is restricted to `role == 'commuter'`.
 - Role is immutable from the client.
 
 ### `routes/{routeId}`
 Canonical route records managed by admins.
 
 Suggested fields:
+- `id`
 - `name`
 - `code`
-- `origin`
-- `destination`
-- `stops`
+- `vehicleType`
+- `originTerminalId`
+- `destinationTerminalId`
+- `directionKey`
+- `coordinates`
 - `isActive`
 - `createdAt`
 - `updatedAt`
@@ -55,8 +60,24 @@ Rules intent:
 - Any signed-in user can read routes.
 - Only admins can create or edit routes.
 
-### `activeTrips/{tripId}`
-One active trip record per driver session.
+### `terminals/{terminalId}`
+Canonical terminal records managed by admins.
+
+Suggested fields:
+- `id`
+- `name`
+- `latitude`
+- `longitude`
+- `isActive`
+- `createdAt`
+- `updatedAt`
+
+Rules intent:
+- Any signed-in user can read terminals.
+- Only admins can create or edit terminals.
+
+### `activeTrips/{driverId}`
+One active trip record per driver session. The active trip document ID is the authenticated driver's UID.
 
 Suggested fields:
 - `driverId`
@@ -68,6 +89,8 @@ Suggested fields:
 Rules intent:
 - Signed-in users can read active trips for map visibility.
 - Driver can create and manage only their own active trip.
+- Driver must create the document at `activeTrips/{driverId}` with `driverId == auth.uid`.
+- This one-doc-per-driver contract is the MVP rule-layer guard for one active trip per driver.
 - Admin can manage any trip.
 
 ### `vehicleLocations/{driverId}`
@@ -87,11 +110,12 @@ Suggested fields:
 
 Rules intent:
 - Signed-in users can read live vehicle locations.
-- Driver can write only their own current location.
+- Driver can write only their own current location with the full validated latest-location shape.
+- Driver location writes must stay bound to the driver's current active trip and route.
 - Admin can moderate or clean up records if needed.
 
 ### `tripEvents/{eventId}`
-Append-only event history for reporting and future analytics.
+Append-only driver event history for reporting and future analytics.
 
 Suggested fields:
 - `tripId`
@@ -108,8 +132,10 @@ Example event types:
 - `route_changed`
 
 Rules intent:
-- Driver can create events for their own trip activity.
+- Driver can create events for their own trip activity with the full validated event shape.
+- Driver event writes must stay bound to the driver's current active trip and route.
 - Admin can read all events for analytics later.
+- Admin can delete exceptional bad records if cleanup is needed.
 - Regular commuters should not read full event history by default.
 
 ## Spark-plan notes
