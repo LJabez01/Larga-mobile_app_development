@@ -4,7 +4,7 @@ import { getAuth, initializeAuth, type Persistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const { getReactNativePersistence } = require('firebase/auth') as {
-  getReactNativePersistence: (storage: typeof AsyncStorage) => Persistence;
+  getReactNativePersistence?: (storage: typeof AsyncStorage) => Persistence;
 };
 
 const firebaseConfig = {
@@ -18,12 +18,15 @@ const firebaseConfig = {
 
 const hasExistingApp = getApps().length > 0;
 const app = hasExistingApp ? getApp() : initializeApp(firebaseConfig);
+const canUseReactNativePersistence = typeof getReactNativePersistence === 'function';
 
 const auth = hasExistingApp
   ? getAuth(app)
-  : initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
-    });
+  : canUseReactNativePersistence
+    ? initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage),
+      })
+    : getAuth(app);
 
 const db = getFirestore(app);
 

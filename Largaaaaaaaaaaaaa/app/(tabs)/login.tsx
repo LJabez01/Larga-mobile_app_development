@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   TextInput,
@@ -9,7 +10,10 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+
+import { getDefaultAppPath, useAuthSession } from '@/components/auth/AuthSessionProvider';
+import { getAuthErrorMessage, signInWithEmail } from '@/services/auth';
 import FormErrorText from '../../components/FormErrorText';
 import { validateLoginForm } from '../../validations/validation';
 
@@ -25,7 +29,10 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const session = useAuthSession();
 
   // Real-time validation
   const validation = useMemo(
@@ -33,10 +40,25 @@ export default function LoginScreen() {
     [email, password]
   );
 
-  const handleLogin = () => {
+  if (session.status === 'signedIn' && session.profile) {
+    return <Redirect href={getDefaultAppPath(session.profile.role)} />;
+  }
+
+  const handleLogin = async () => {
     setSubmitted(true);
+
     if (validation.isValid) {
-      router.push('/guideline');
+      setAuthError(null);
+      setIsSubmitting(true);
+
+      try {
+        const result = await signInWithEmail({ email, password });
+        router.replace(getDefaultAppPath(result.profile.role));
+      } catch (error) {
+        setAuthError(getAuthErrorMessage(error));
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -109,9 +131,16 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin} activeOpacity={0.85}>
-          <Text style={styles.loginText}>Sign In</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.loginText}>Sign In</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </>
+          )}
         </TouchableOpacity>
+        <FormErrorText error={authError ?? session.errorMessage ?? undefined} />
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Don't have an account?</Text>

@@ -6,20 +6,22 @@ import terminals from '@/lib/seed/terminals.json';
 import routes from '@/lib/seed/routes.json';
 import { validateSeedData } from '@/lib/seed/validateSeedData';
 
+const typedRoutes = routes as unknown as RouteRecord[];
+
 test('all routes reference known terminal ids', () => {
-  const result = validateSeedData({ terminals, routes });
+  const result = validateSeedData({ terminals, routes: typedRoutes });
   assert.equal(result.ok, true, result.errors.join('\n'));
 });
 
 test('each route has at least two coordinates and a stable id', () => {
-  const result = validateSeedData({ terminals, routes });
+  const result = validateSeedData({ terminals, routes: typedRoutes });
   assert.equal(result.routeCount, 6);
   assert.equal(result.terminalCount, 4);
 });
 
 test('validator reports malformed route data', () => {
   const malformedRoute: RouteRecord = {
-    ...routes[0],
+    ...typedRoutes[0],
     id: 'jeepney__missing-terminal__short-route',
     originTerminalId: 'missing-terminal',
     coordinates: [[120.9639, 14.8234]],

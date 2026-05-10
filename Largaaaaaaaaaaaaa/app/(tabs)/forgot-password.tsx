@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   TextInput,
@@ -9,7 +10,10 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+
+import { getDefaultAppPath, useAuthSession } from '@/components/auth/AuthSessionProvider';
+import { getAuthErrorMessage, sendPasswordReset } from '@/services/auth';
 import FormErrorText from '../../components/FormErrorText';
 import { validateForgotPasswordForm } from '../../validations/validation';
 
@@ -23,7 +27,10 @@ export default function ForgotPasswordScreen() {
   const [sent, setSent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const session = useAuthSession();
 
   // Real-time validation
   const validation = useMemo(
@@ -31,10 +38,25 @@ export default function ForgotPasswordScreen() {
     [email]
   );
 
-  const handleSend = () => {
+  if (session.status === 'signedIn' && session.profile) {
+    return <Redirect href={getDefaultAppPath(session.profile.role)} />;
+  }
+
+  const handleSend = async () => {
     setSubmitted(true);
+
     if (validation.isValid) {
-      setSent(true);
+      setAuthError(null);
+      setIsSubmitting(true);
+
+      try {
+        await sendPasswordReset({ email });
+        setSent(true);
+      } catch (error) {
+        setAuthError(getAuthErrorMessage(error));
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -76,9 +98,16 @@ export default function ForgotPasswordScreen() {
             </View>
 
             <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.85}>
-              <Text style={styles.sendText}>Send Reset Link</Text>
-              <Ionicons name="send" size={16} color="#fff" />
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={styles.sendText}>Send Reset Link</Text>
+                  <Ionicons name="send" size={16} color="#fff" />
+                </>
+              )}
             </TouchableOpacity>
+            <FormErrorText error={authError ?? session.errorMessage ?? undefined} />
 
             <View style={styles.linksRow}>
               <TouchableOpacity onPress={() => router.push('/login')}>
