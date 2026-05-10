@@ -1,0 +1,110 @@
+[
+  {
+    "id": "jeepney__santa-maria-bayan__halang-terminal",
+    "name": "Santa Maria - Halang",
+    "code": "SM-HLG-J",
+    "vehicleType": "jeepney",
+    "originTerminalId": "santa-maria-bayan",
+    "destinationTerminalId": "halang-terminal",
+    "directionKey": "santa-maria-bayan__halang-terminal",
+    "coordinates": [
+      [120.9639, 14.8234],
+      [120.9803, 14.8322],
+      [120.9954, 14.8429],
+      [121.0129, 14.8537]
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  },
+  {
+    "id": "jeepney__halang-terminal__santa-maria-bayan",
+    "name": "Halang - Santa Maria",
+    "code": "HLG-SM-J",
+    "vehicleType": "jeepney",
+    "originTerminalId": "halang-terminal",
+    "destinationTerminalId": "santa-maria-bayan",
+    "directionKey": "halang-terminal__santa-maria-bayan",
+    "coordinates": [
+      [121.0129, 14.8537],
+      [120.9954, 14.8429],
+      [120.9803, 14.8322],
+      [120.9639, 14.8234]
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  },
+  {
+    "id": "jeepney__santa-maria-bayan__norzagaray-terminal",
+    "name": "Santa Maria - Norzagaray",
+    "code": "SM-NZG-J",
+    "vehicleType": "jeepney",
+    "originTerminalId": "santa-maria-bayan",
+    "destinationTerminalId": "norzagaray-terminal",
+    "directionKey": "santa-maria-bayan__norzagaray-terminal",
+    "coordinates": [
+      [120.9639, 14.8234],
+      [120.9897, 14.8488],
+      [121.0175, 14.8781],
+      [121.0458, 14.9107]
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  },
+  {
+    "id": "jeepney__norzagaray-terminal__santa-maria-bayan",
+    "name": "Norzagaray - Santa Maria",
+    "code": "NZG-SM-J",
+    "vehicleType": "jeepney",
+    "originTerminalId": "norzagaray-terminal",
+    "destinationTerminalId": "santa-maria-bayan",
+    "directionKey": "norzagaray-terminal__santa-maria-bayan",
+    "coordinates": [
+      [121.0458, 14.9107],
+      [121.0175, 14.8781],
+      [120.9897, 14.8488],
+      [120.9639, 14.8234]
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  },
+  {
+    "id": "bus__santa-maria-bayan__san-jose-terminal",
+    "name": "Santa Maria - San Jose",
+    "code": "SM-SJ-B",
+    "vehicleType": "bus",
+    "originTerminalId": "santa-maria-bayan",
+    "destinationTerminalId": "san-jose-terminal",
+    "directionKey": "santa-maria-bayan__san-jose-terminal",
+    "coordinates": [
+      [120.9639, 14.8234],
+      [120.9756, 14.8289],
+      [120.9869, 14.8335],
+      [120.9975, 14.8376]
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  },
+  {
+    "id": "bus__san-jose-terminal__santa-maria-bayan",
+    "name": "San Jose - Santa Maria",
+    "code": "SJ-SM-B",
+    "vehicleType": "bus",
+    "originTerminalId": "san-jose-terminal",
+    "destinationTerminalId": "santa-maria-bayan",
+    "directionKey": "san-jose-terminal__santa-maria-bayan",
+    "coordinates": [
+      [120.9975, 14.8376],
+      [120.9869, 14.8335],
+      [120.9756, 14.8289],
+      [120.9639, 14.8234]
+    ],
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  }
+]

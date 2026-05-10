@@ -1,0 +1,38 @@
+[
+  {
+    "id": "santa-maria-bayan",
+    "name": "Santa Maria Bayan",
+    "latitude": 14.8234,
+    "longitude": 120.9639,
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  },
+  {
+    "id": "halang-terminal",
+    "name": "Halang Terminal",
+    "latitude": 14.8537,
+    "longitude": 121.0129,
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  },
+  {
+    "id": "norzagaray-terminal",
+    "name": "Norzagaray Terminal",
+    "latitude": 14.9107,
+    "longitude": 121.0458,
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  },
+  {
+    "id": "san-jose-terminal",
+    "name": "San Jose Terminal",
+    "latitude": 14.8376,
+    "longitude": 120.9975,
+    "isActive": true,
+    "createdAt": "2026-05-10T00:00:00.000Z",
+    "updatedAt": "2026-05-10T00:00:00.000Z"
+  }
+]
