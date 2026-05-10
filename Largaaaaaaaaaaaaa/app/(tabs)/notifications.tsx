@@ -7,7 +7,7 @@ export default function NotificationsPage() {
   return (
     <NotificationsScreen
       userRole="commuter"
-      onBack={() => router.back()}
+      onBack={() => router.replace('/commuter')}
     />
   );
 }
