@@ -108,7 +108,7 @@ export default function Guideline({ onComplete }: GuidelineProps) {
       if (onComplete) {
         onComplete();
       } else {
-        router.push('/driver' as any);
+        router.push('/roleselection' as any);
       }
     }
   };

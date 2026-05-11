@@ -1,5 +1,5 @@
-import MapScreen from '../../components/map/MapScreen';
+import CommuterMapScreen from '@/components/map/commuter/commutermapscreen';
 
 export default function CommuterScreen() {
-  return <MapScreen />;
+  return <CommuterMapScreen />;
 }
