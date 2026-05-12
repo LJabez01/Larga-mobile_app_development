@@ -32,7 +32,6 @@ export default function ForgotPasswordScreen() {
   const router = useRouter();
   const session = useAuthSession();
 
-  // Real-time validation
   const validation = useMemo(
     () => validateForgotPasswordForm({ email }),
     [email]
@@ -119,7 +118,7 @@ export default function ForgotPasswordScreen() {
           <View style={styles.sentBox}>
             <MaterialCommunityIcons name="check-circle-outline" size={48} color={PRIMARY} />
             <Text style={styles.sentTitle}>Check your inbox</Text>
-            <Text style={styles.sentText}>We’ve sent a password reset link to {email || 'your email'}.</Text>
+            <Text style={styles.sentText}>We've sent a password reset link to {email || 'your email'}.</Text>
             <TouchableOpacity style={styles.sentButton} onPress={() => router.push('/login')}>
               <Text style={styles.sentButtonText}>Return to Sign In</Text>
             </TouchableOpacity>
@@ -144,7 +143,6 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 26, fontWeight: '800', color: TEXT, marginBottom: 6 },
   subtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', paddingHorizontal: 40 },
-
   content: { paddingHorizontal: 20, paddingTop: 28 },
   inputGroup: {
     marginBottom: 16,
@@ -161,7 +159,6 @@ const styles = StyleSheet.create({
   },
   icon: { marginRight: 12 },
   input: { flex: 1, fontSize: 15, color: TEXT, fontWeight: '500' },
-
   sendButton: {
     backgroundColor: PRIMARY,
     borderRadius: 12,
@@ -173,10 +170,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sendText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-
   linksRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 6 },
   link: { color: PRIMARY, fontWeight: '700', fontSize: 14 },
-
   sentBox: { alignItems: 'center', paddingTop: 20 },
   sentTitle: { fontSize: 20, fontWeight: '800', color: TEXT, marginTop: 12 },
   sentText: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginTop: 8, paddingHorizontal: 28 },

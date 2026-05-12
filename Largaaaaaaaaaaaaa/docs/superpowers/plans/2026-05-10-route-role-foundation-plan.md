@@ -56,7 +56,7 @@ Checkpoint:
 - Auth/Firestore emulator smoke checks pass.
 
 ## Task 4: Auth and User Bootstrap
-Status: pending
+Status: completed
 
 Files:
 - `Largaaaaaaaaaaaaa/services/auth.ts`
@@ -75,16 +75,16 @@ Checkpoint:
 - First successful commuter sign-in guarantees a matching `users/{uid}` document.
 
 ## Task 5: Auth-Aware App Routing
-Status: pending
+Status: completed
 
 Files:
 - `Largaaaaaaaaaaaaa/app/_layout.tsx`
 - `Largaaaaaaaaaaaaa/app/index.tsx`
-- `Largaaaaaaaaaaaaa/app/(tabs)/login.tsx`
-- `Largaaaaaaaaaaaaa/app/(tabs)/registration.tsx`
-- `Largaaaaaaaaaaaaa/app/(tabs)/forgot-password.tsx`
+- `Largaaaaaaaaaaaaa/app/(auth)/login.tsx`
+- `Largaaaaaaaaaaaaa/app/(auth)/registration.tsx`
+- `Largaaaaaaaaaaaaa/app/(auth)/forgot-password.tsx`
 - `Largaaaaaaaaaaaaa/components/Guideline.tsx`
-- `Largaaaaaaaaaaaaa/app/(tabs)/guideline.tsx`
+- `Largaaaaaaaaaaaaa/app/(auth)/guideline.tsx`
 
 Implementation:
 1. Add session bootstrap and auth-state listening near the app root.

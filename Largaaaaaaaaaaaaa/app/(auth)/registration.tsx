@@ -63,13 +63,11 @@ export default function CreateAccountScreen() {
     setIsSubmitting(true);
 
     try {
-      const result = await registerCommuter({
+      await registerCommuter({
         email,
         password,
         displayName: username,
       });
-
-      router.replace(getDefaultAppPath(result.profile.role));
     } catch (error) {
       setAuthError(getAuthErrorMessage(error));
     } finally {

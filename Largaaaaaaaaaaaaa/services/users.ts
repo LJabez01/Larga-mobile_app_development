@@ -1,5 +1,5 @@
 import type { User } from 'firebase/auth';
-import { doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, type Firestore } from 'firebase/firestore';
 import type { AppRole } from '@/lib/domain/auth';
 import { isAppUserDocument, type AppUserDocument } from '@/lib/domain/users';
 
@@ -57,6 +57,33 @@ export function resolveDisplayName(user: Pick<User, 'email' | 'displayName'>, pr
   return buildFallbackDisplayName(user.email);
 }
 
+export function shouldSyncDisplayName(
+  profile: AppUserDocument,
+  nextDisplayName?: string | null
+): boolean {
+  const normalizedDisplayName = nextDisplayName?.trim();
+
+  return Boolean(normalizedDisplayName && normalizedDisplayName !== profile.displayName);
+}
+
+export function syncUserDisplayName(
+  profile: AppUserDocument,
+  nextDisplayName: string,
+  now?: string
+): AppUserDocument {
+  const normalizedDisplayName = nextDisplayName.trim();
+
+  if (!normalizedDisplayName || normalizedDisplayName === profile.displayName) {
+    return profile;
+  }
+
+  return {
+    ...profile,
+    displayName: normalizedDisplayName,
+    updatedAt: now ?? new Date().toISOString(),
+  };
+}
+
 function parseUserDocument(value: unknown): AppUserDocument {
   if (!isAppUserDocument(value)) {
     throw new Error('User profile is missing required fields.');
@@ -85,23 +112,35 @@ export async function ensureUserDocument(
   user: Pick<User, 'uid' | 'email' | 'displayName'>,
   options: EnsureUserOptions = {}
 ): Promise<AppUserDocument> {
-  const existingUser = await getUserDocument(user.uid);
-
-  if (existingUser) {
-    return existingUser;
-  }
-
   if (!user.email) {
     throw new Error('Signed-in user is missing an email address.');
   }
+  const userEmail = user.email;
+  const preferredDisplayName: string = resolveDisplayName(user, options.displayName);
 
-  const profile = buildUserDocument({
-    uid: user.uid,
-    email: user.email,
-    displayName: resolveDisplayName(user, options.displayName),
+  return runTransaction(getDb(), async (transaction) => {
+    const userRef = doc(getDb(), 'users', user.uid);
+    const existingSnapshot = await transaction.get(userRef);
+
+    if (existingSnapshot.exists()) {
+      const existingProfile = parseUserDocument(existingSnapshot.data());
+
+      if (!shouldSyncDisplayName(existingProfile, preferredDisplayName)) {
+        return existingProfile;
+      }
+
+      const updatedProfile = syncUserDisplayName(existingProfile, preferredDisplayName);
+      transaction.set(userRef, updatedProfile);
+      return updatedProfile;
+    }
+
+    const profile = buildUserDocument({
+      uid: user.uid,
+      email: userEmail,
+      displayName: preferredDisplayName,
+    });
+
+    transaction.set(userRef, profile);
+    return profile;
   });
-
-  await setDoc(doc(getDb(), 'users', user.uid), profile);
-
-  return profile;
 }

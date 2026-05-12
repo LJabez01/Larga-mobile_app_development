@@ -34,7 +34,6 @@ export default function LoginScreen() {
   const router = useRouter();
   const session = useAuthSession();
 
-  // Real-time validation
   const validation = useMemo(
     () => validateLoginForm({ email, password }),
     [email, password]
@@ -52,8 +51,7 @@ export default function LoginScreen() {
       setIsSubmitting(true);
 
       try {
-        const result = await signInWithEmail({ email, password });
-        router.replace(getDefaultAppPath(result.profile.role));
+        await signInWithEmail({ email, password });
       } catch (error) {
         setAuthError(getAuthErrorMessage(error));
       } finally {
@@ -172,7 +170,6 @@ const styles = StyleSheet.create({
   },
   title: { color: '#fff', fontSize: 28, fontWeight: '800', marginBottom: 6 },
   subtitle: { color: '#D1FAE5', fontSize: 13, fontWeight: '600' },
-
   form: { paddingHorizontal: 20, paddingTop: 28 },
   inputGroup: {
     marginBottom: 14,
@@ -189,10 +186,8 @@ const styles = StyleSheet.create({
   },
   icon: { marginRight: 12 },
   input: { flex: 1, fontSize: 15, color: TEXT, fontWeight: '500' },
-
   forgotRow: { alignItems: 'flex-end', marginBottom: 18 },
   forgot: { color: '#6B7280', fontSize: 13, fontWeight: '600' },
-
   loginButton: {
     backgroundColor: PRIMARY,
     borderRadius: 12,
@@ -204,7 +199,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   loginText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-
   footerRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, alignItems: 'center' },
   footerText: { color: '#6B7280', fontSize: 14, fontWeight: '600' },
   footerLink: { color: PRIMARY, fontSize: 14, fontWeight: '800' },

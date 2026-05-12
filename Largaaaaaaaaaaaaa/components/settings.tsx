@@ -15,7 +15,7 @@ import AboutUsScreen from "./about";
 import AccountScreen from "./account";
 import FAQsScreen from "./faqs";
 import PreferencesScreen from "./preferences";
-import { useRouter } from "expo-router";
+import { signOutCurrentUser } from "@/services/auth";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.82;
@@ -59,7 +59,6 @@ type Props = {
 };
 
 export default function SettingsDrawer({ visible, onClose }: Props) {
-  const router = useRouter();
   const [activePage, setActivePage] = useState<ActivePage>(null);
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -175,9 +174,9 @@ export default function SettingsDrawer({ visible, onClose }: Props) {
             <TouchableOpacity
               style={styles.logoutBtn}
               activeOpacity={0.8}
-              onPress={() => {
+              onPress={async () => {
                 handleClose();
-                router.push('/login');
+                await signOutCurrentUser();
               }}
             >
               <Feather name="log-out" size={18} color="#ef4444" />

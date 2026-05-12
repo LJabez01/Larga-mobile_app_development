@@ -5,9 +5,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
   type Auth,
+  updateProfile,
 } from 'firebase/auth';
 
-import type { AppUserDocument } from '@/lib/domain/users';
 import { ensureUserDocument } from '@/services/users';
 
 export interface SignInInput {
@@ -17,10 +17,6 @@ export interface SignInInput {
 
 export interface RegisterCommuterInput extends SignInInput {
   readonly displayName: string;
-}
-
-export interface AuthResult {
-  readonly profile: AppUserDocument;
 }
 
 function getAuthInstance(): Auth {
@@ -62,28 +58,32 @@ export function getAuthErrorMessage(error: unknown): string {
   }
 }
 
-export async function signInWithEmail(input: SignInInput): Promise<AuthResult> {
-  const credential = await signInWithEmailAndPassword(
+export async function signInWithEmail(input: SignInInput): Promise<void> {
+  await signInWithEmailAndPassword(
     getAuthInstance(),
     input.email.trim(),
     input.password
   );
-  const profile = await ensureUserDocument(credential.user);
-
-  return { profile };
 }
 
-export async function registerCommuter(input: RegisterCommuterInput): Promise<AuthResult> {
+export async function registerCommuter(input: RegisterCommuterInput): Promise<void> {
   const credential = await createUserWithEmailAndPassword(
     getAuthInstance(),
     input.email.trim(),
     input.password
   );
-  const profile = await ensureUserDocument(credential.user, {
-    displayName: input.displayName,
-  });
 
-  return { profile };
+  const trimmedDisplayName = input.displayName.trim();
+
+  if (trimmedDisplayName) {
+    await updateProfile(credential.user, {
+      displayName: trimmedDisplayName,
+    });
+  }
+
+  await ensureUserDocument(credential.user, {
+    displayName: trimmedDisplayName,
+  });
 }
 
 export async function sendPasswordReset(input: Pick<SignInInput, 'email'>): Promise<void> {
