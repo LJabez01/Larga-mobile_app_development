@@ -1,74 +1,43 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { Redirect, Tabs, usePathname } from 'expo-router';
-
-import { useAuthSession } from '@/components/auth/AuthSessionProvider';
+import { Stack } from 'expo-router';
 
 export default function TabLayout() {
-  const pathname = usePathname();
-  const session = useAuthSession();
-
-  if (session.status === 'loading') {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#10B981" />
-      </View>
-    );
-  }
-
-  if (session.status === 'signedOut') {
-    return <Redirect href="/login" />;
-  }
-
-  if (session.profile?.role === 'commuter' && pathname === '/driver') {
-    return <Redirect href="/commuter" />;
-  }
-
-  if (session.profile?.role === 'driver' && pathname === '/commuter') {
-    return <Redirect href="/driver" />;
-  }
-
   return (
-    <Tabs
+    <Stack
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          display: 'none',
-        },
-      }}>
-      <Tabs.Screen
+      }}
+    >
+      <Stack.Screen
         name="commuter"
         options={{
           title: 'Commuter',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="driver"
         options={{
           title: 'Driver',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="notifications"
         options={{
           title: 'Notifications',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
+        name="roleselection"
+        options={{
+          title: 'Role Selection',
+        }}
+      />
+      <Stack.Screen
         name="two"
         options={{
           title: 'Two',
         }}
       />
-    </Tabs>
+    </Stack>
   );
 }
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-});

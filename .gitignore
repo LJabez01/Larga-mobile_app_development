@@ -1,2 +1,4 @@
 node_modules
 Largaaaaaaaaaaaaa/firestore-debug.log
+keys/
+*.service-account.json

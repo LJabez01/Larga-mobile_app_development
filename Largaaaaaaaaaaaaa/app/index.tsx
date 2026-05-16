@@ -1,12 +1,12 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
 
-import { getDefaultAppPath, useAuthSession } from '@/components/auth/AuthSessionProvider';
+import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 
 export default function RootIndex() {
-  const session = useAuthSession();
+  const { session, status } = useAppSession();
 
-  if (session.status === 'loading') {
+  if (status === 'loading') {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#10B981" />
@@ -14,8 +14,8 @@ export default function RootIndex() {
     );
   }
 
-  if (session.status === 'signedIn' && session.profile) {
-    return <Redirect href={getDefaultAppPath(session.profile.role)} />;
+  if (status === 'signedIn' && session) {
+    return <Redirect href={getDefaultAppPath(session.role)} />;
   }
 
   return <Redirect href="/login" />;

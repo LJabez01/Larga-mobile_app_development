@@ -1,26 +1,33 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  View,
+  Platform,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  Platform,
+  View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 
-import { getDefaultAppPath, useAuthSession } from '@/components/auth/AuthSessionProvider';
-import { getAuthErrorMessage, sendPasswordReset } from '@/services/auth';
 import FormErrorText from '../../components/FormErrorText';
+import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 import { validateForgotPasswordForm } from '../../validations/validation';
 
 const PRIMARY = '#10B981';
 const BG_LIGHT = '#F7FEF8';
 const TEXT = '#0F172A';
 const ERROR_COLOR = '#EF4444';
+
+function getFriendlyAuthError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Something went wrong. Please try again.';
+}
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -30,32 +37,34 @@ export default function ForgotPasswordScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const session = useAuthSession();
+  const { requestPasswordReset, session, status } = useAppSession();
 
   const validation = useMemo(
     () => validateForgotPasswordForm({ email }),
     [email]
   );
 
-  if (session.status === 'signedIn' && session.profile) {
-    return <Redirect href={getDefaultAppPath(session.profile.role)} />;
+  if (status === 'signedIn' && session) {
+    return <Redirect href={getDefaultAppPath(session.role)} />;
   }
 
   const handleSend = async () => {
     setSubmitted(true);
 
-    if (validation.isValid) {
-      setAuthError(null);
-      setIsSubmitting(true);
+    if (!validation.isValid) {
+      return;
+    }
 
-      try {
-        await sendPasswordReset({ email });
-        setSent(true);
-      } catch (error) {
-        setAuthError(getAuthErrorMessage(error));
-      } finally {
-        setIsSubmitting(false);
-      }
+    setAuthError(null);
+    setIsSubmitting(true);
+
+    try {
+      await requestPasswordReset(email);
+      setSent(true);
+    } catch (error) {
+      setAuthError(getFriendlyAuthError(error));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -106,7 +115,7 @@ export default function ForgotPasswordScreen() {
                 </>
               )}
             </TouchableOpacity>
-            <FormErrorText error={authError ?? session.errorMessage ?? undefined} />
+            <FormErrorText error={authError ?? undefined} />
 
             <View style={styles.linksRow}>
               <TouchableOpacity onPress={() => router.push('/login')}>
@@ -118,7 +127,7 @@ export default function ForgotPasswordScreen() {
           <View style={styles.sentBox}>
             <MaterialCommunityIcons name="check-circle-outline" size={48} color={PRIMARY} />
             <Text style={styles.sentTitle}>Check your inbox</Text>
-            <Text style={styles.sentText}>We've sent a password reset link to {email || 'your email'}.</Text>
+            <Text style={styles.sentText}>We&apos;ve sent a password reset link to {email || 'your email'}.</Text>
             <TouchableOpacity style={styles.sentButton} onPress={() => router.push('/login')}>
               <Text style={styles.sentButtonText}>Return to Sign In</Text>
             </TouchableOpacity>
@@ -167,7 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sendText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   linksRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 6 },

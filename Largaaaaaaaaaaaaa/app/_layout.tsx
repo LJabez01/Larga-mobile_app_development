@@ -6,7 +6,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
-import { AuthSessionProvider } from '@/components/auth/AuthSessionProvider';
+import { AppSessionProvider } from '@/components/providers/AppSessionProvider';
+import { LiveDataProvider } from '@/components/providers/LiveDataProvider';
 import { useColorScheme } from '@/components/useColorScheme';
 import AnimatedSplashScreen from '@/components/AnimatedSplashScreen';
 
@@ -50,15 +51,17 @@ function RootLayoutNav() {
   }
 
   return (
-    <AuthSessionProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-        </Stack>
-      </ThemeProvider>
-    </AuthSessionProvider>
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <AppSessionProvider>
+        <LiveDataProvider>
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          </Stack>
+        </LiveDataProvider>
+      </AppSessionProvider>
+    </ThemeProvider>
   );
 }

@@ -2,18 +2,6 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isTimestampString(value) {
-      return value is string;
-    }
-
-    function isNullableString(value) {
-      return value == null || value is string;
-    }
-
-    function isNullableNumber(value) {
-      return value == null || value is number;
-    }
-
     function signedIn() {
       return request.auth != null;
     }
@@ -42,240 +30,53 @@ service cloud.firestore {
         && get(userDocPath(request.auth.uid)).data.role == 'driver';
     }
 
-    function isUserDocument(data) {
-      return data.keys().hasAll([
-          'uid',
-          'role',
-          'email',
-          'displayName',
-          'phoneNumber',
-          'createdAt',
-          'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'uid',
-          'role',
-          'email',
-          'displayName',
-          'phoneNumber',
-          'createdAt',
-          'updatedAt'
-        ])
-        && data.uid is string
-        && data.role is string
-        && data.email is string
-        && data.displayName is string
-        && isNullableString(data.phoneNumber)
-        && isTimestampString(data.createdAt)
-        && isTimestampString(data.updatedAt);
-    }
-
-    function isRouteDocument(data) {
-      return data.keys().hasAll([
-          'id',
-          'name',
-          'code',
-          'vehicleType',
-          'originTerminalId',
-          'destinationTerminalId',
-          'directionKey',
-          'coordinates',
-          'isActive',
-          'createdAt',
-          'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'id',
-          'name',
-          'code',
-          'vehicleType',
-          'originTerminalId',
-          'destinationTerminalId',
-          'directionKey',
-          'coordinates',
-          'isActive',
-          'createdAt',
-          'updatedAt'
-        ])
-        && data.id is string
-        && data.name is string
-        && data.code is string
-        && data.vehicleType is string
-        && data.originTerminalId is string
-        && data.destinationTerminalId is string
-        && data.directionKey is string
-        && data.coordinates is list
-        && data.isActive is bool
-        && isTimestampString(data.createdAt)
-        && isTimestampString(data.updatedAt);
-    }
-
-    function isTerminalDocument(data) {
-      return data.keys().hasAll([
-          'id',
-          'name',
-          'latitude',
-          'longitude',
-          'isActive',
-          'createdAt',
-          'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'id',
-          'name',
-          'latitude',
-          'longitude',
-          'isActive',
-          'createdAt',
-          'updatedAt'
-        ])
-        && data.id is string
-        && data.name is string
-        && data.latitude is number
-        && data.longitude is number
-        && data.isActive is bool
-        && isTimestampString(data.createdAt)
-        && isTimestampString(data.updatedAt);
-    }
-
-    function isActiveTripDocument(data) {
-      return data.keys().hasAll([
-          'driverId',
-          'routeId',
-          'status',
-          'startedAt',
-          'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'driverId',
-          'routeId',
-          'status',
-          'startedAt',
-          'updatedAt'
-        ])
-        && data.driverId is string
-        && data.routeId is string
-        && data.status is string
-        && isTimestampString(data.startedAt)
-        && isTimestampString(data.updatedAt);
-    }
-
-    function isVehicleLocationDocument(data) {
-      return data.keys().hasAll([
-          'driverId',
-          'tripId',
-          'routeId',
-          'latitude',
-          'longitude',
-          'heading',
-          'speed',
-          'accuracy',
-          'recordedAt',
-          'updatedAt'
-        ])
-        && data.keys().hasOnly([
-          'driverId',
-          'tripId',
-          'routeId',
-          'latitude',
-          'longitude',
-          'heading',
-          'speed',
-          'accuracy',
-          'recordedAt',
-          'updatedAt'
-        ])
-        && data.driverId is string
-        && data.tripId is string
-        && data.routeId is string
-        && data.latitude is number
-        && data.longitude is number
-        && isNullableNumber(data.heading)
-        && isNullableNumber(data.speed)
-        && isNullableNumber(data.accuracy)
-        && isTimestampString(data.recordedAt)
-        && isTimestampString(data.updatedAt);
-    }
-
-    function isTripEventDocument(data) {
-      return data.keys().hasAll([
-          'tripId',
-          'driverId',
-          'routeId',
-          'eventType',
-          'recordedAt',
-          'metadata'
-        ])
-        && data.keys().hasOnly([
-          'tripId',
-          'driverId',
-          'routeId',
-          'eventType',
-          'recordedAt',
-          'metadata'
-        ])
-        && data.tripId is string
-        && data.driverId is string
-        && data.routeId is string
-        && data.eventType is string
-        && isTimestampString(data.recordedAt)
-        && data.metadata is map;
-    }
-
-    function matchesCurrentDriverTrip(data) {
-      return signedIn()
-        && exists(activeTripPath(request.auth.uid))
-        && get(activeTripPath(request.auth.uid)).data.driverId == request.auth.uid
-        && get(activeTripPath(request.auth.uid)).data.routeId == data.routeId
-        && data.tripId == request.auth.uid;
+    function activeTripMatchesRequest(driverId, routeId) {
+      return exists(activeTripPath(driverId))
+        && get(activeTripPath(driverId)).data.driverId == driverId
+        && get(activeTripPath(driverId)).data.routeId == routeId;
     }
 
     match /users/{uid} {
       allow create: if isOwner(uid)
-        && isUserDocument(request.resource.data)
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.role == 'commuter'
-        && !exists(userDocPath(uid));
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'role',
+          'email',
+          'displayName',
+          'phoneNumber',
+          'createdAt',
+          'updatedAt'
+        ]);
 
       allow read: if isOwner(uid) || isAdmin();
 
       allow update: if (isOwner(uid) || isAdmin())
-        && isUserDocument(request.resource.data)
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.role == resource.data.role
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'role',
+          'email',
+          'displayName',
+          'phoneNumber',
+          'createdAt',
+          'updatedAt'
+        ]);
 
       allow delete: if isAdmin();
     }
 
     match /routes/{routeId} {
-      allow create: if isAdmin()
-        && isRouteDocument(request.resource.data)
-        && request.resource.data.id == routeId;
-
       allow read: if signedIn();
-
-      allow update: if isAdmin()
-        && isRouteDocument(request.resource.data)
-        && request.resource.data.id == resource.data.id
-        && request.resource.data.createdAt == resource.data.createdAt;
-
-      allow delete: if isAdmin();
+      allow write: if isAdmin();
     }
 
     match /terminals/{terminalId} {
-      allow create: if isAdmin()
-        && isTerminalDocument(request.resource.data)
-        && request.resource.data.id == terminalId;
-
       allow read: if signedIn();
-
-      allow update: if isAdmin()
-        && isTerminalDocument(request.resource.data)
-        && request.resource.data.id == resource.data.id
-        && request.resource.data.createdAt == resource.data.createdAt;
-
-      allow delete: if isAdmin();
+      allow write: if isAdmin();
     }
 
     match /activeTrips/{driverId} {
@@ -283,27 +84,23 @@ service cloud.firestore {
 
       allow create: if isDriver()
         && isOwner(driverId)
-        && isActiveTripDocument(request.resource.data)
-        && driverId == request.auth.uid
         && request.resource.data.driverId == request.auth.uid
+        && request.resource.data.routeId is string
+        && request.resource.data.originTerminalId is string
+        && request.resource.data.destinationTerminalId is string
+        && request.resource.data.originTerminalId != request.resource.data.destinationTerminalId
         && request.resource.data.status == 'active'
-        && !exists(activeTripPath(driverId));
+        && request.resource.data.keys().hasOnly([
+          'driverId',
+          'routeId',
+          'originTerminalId',
+          'destinationTerminalId',
+          'status',
+          'startedAt',
+          'updatedAt'
+        ]);
 
-      allow update: if (
-          isDriver()
-          && resource.data.driverId == request.auth.uid
-          && isOwner(driverId)
-          && isActiveTripDocument(request.resource.data)
-          && request.resource.data.driverId == resource.data.driverId
-          && request.resource.data.routeId == resource.data.routeId
-          && request.resource.data.startedAt == resource.data.startedAt
-        ) || (
-          isAdmin()
-          && isActiveTripDocument(request.resource.data)
-          && request.resource.data.driverId == resource.data.driverId
-          && request.resource.data.routeId == resource.data.routeId
-          && request.resource.data.startedAt == resource.data.startedAt
-        );
+      allow update: if false;
 
       allow delete: if (isDriver() && isOwner(driverId) && resource.data.driverId == request.auth.uid)
         || isAdmin();
@@ -313,29 +110,44 @@ service cloud.firestore {
       allow read: if signedIn();
 
       allow create, update: if ((isDriver() && isOwner(driverId)) || isAdmin())
-        && isVehicleLocationDocument(request.resource.data)
         && request.resource.data.driverId == driverId
-        && (
-          isAdmin()
-          || (
-            request.resource.data.driverId == request.auth.uid
-            && matchesCurrentDriverTrip(request.resource.data)
-          )
-        );
+        && request.resource.data.tripId == driverId
+        && activeTripMatchesRequest(driverId, request.resource.data.routeId)
+        && request.resource.data.keys().hasOnly([
+          'driverId',
+          'tripId',
+          'routeId',
+          'latitude',
+          'longitude',
+          'heading',
+          'speed',
+          'accuracy',
+          'recordedAt',
+          'updatedAt'
+        ]);
 
-      allow delete: if isAdmin();
+      allow delete: if ((isDriver() && isOwner(driverId) && resource.data.driverId == request.auth.uid)
+        || isAdmin());
     }
 
     match /tripEvents/{eventId} {
       allow create: if isDriver()
-        && isTripEventDocument(request.resource.data)
         && request.resource.data.driverId == request.auth.uid
-        && matchesCurrentDriverTrip(request.resource.data);
+        && request.resource.data.tripId == request.auth.uid
+        && request.resource.data.eventType in ['trip_started', 'trip_ended']
+        && request.resource.data.keys().hasOnly([
+          'tripId',
+          'driverId',
+          'routeId',
+          'eventType',
+          'recordedAt',
+          'metadata'
+        ]);
 
       allow read: if isAdmin()
         || (signedIn() && resource.data.driverId == request.auth.uid);
 
-      allow delete: if isAdmin();
+      allow update, delete: if isAdmin();
     }
 
     match /{document=**} {

@@ -1,20 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  View,
+  Platform,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StatusBar,
-  StyleSheet,
-  Platform,
+  View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 
-import { getDefaultAppPath, useAuthSession } from '@/components/auth/AuthSessionProvider';
-import { getAuthErrorMessage, signInWithEmail } from '@/services/auth';
 import FormErrorText from '../../components/FormErrorText';
+import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 import { validateLoginForm } from '../../validations/validation';
 
 const PRIMARY = '#10B981';
@@ -22,6 +21,14 @@ const ACCENT = '#059669';
 const BG_LIGHT = '#F0FDF4';
 const TEXT = '#111827';
 const ERROR_COLOR = '#EF4444';
+
+function getFriendlyAuthError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Something went wrong. Please try again.';
+}
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -32,31 +39,45 @@ export default function LoginScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const session = useAuthSession();
+  const { isMockMode, session, signIn, startDemoSession, status } = useAppSession();
 
   const validation = useMemo(
     () => validateLoginForm({ email, password }),
     [email, password]
   );
 
-  if (session.status === 'signedIn' && session.profile) {
-    return <Redirect href={getDefaultAppPath(session.profile.role)} />;
+  if (status === 'signedIn' && session) {
+    return <Redirect href={getDefaultAppPath(session.role)} />;
   }
 
   const handleLogin = async () => {
     setSubmitted(true);
 
-    if (validation.isValid) {
-      setAuthError(null);
-      setIsSubmitting(true);
+    if (!validation.isValid) {
+      return;
+    }
 
-      try {
-        await signInWithEmail({ email, password });
-      } catch (error) {
-        setAuthError(getAuthErrorMessage(error));
-      } finally {
-        setIsSubmitting(false);
-      }
+    setAuthError(null);
+    setIsSubmitting(true);
+
+    try {
+      await signIn({ email, password });
+      router.push('/guideline');
+    } catch (error) {
+      setAuthError(getFriendlyAuthError(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartDemo = async (role: 'commuter' | 'driver') => {
+    setAuthError(null);
+
+    try {
+      await startDemoSession(role);
+      router.push('/guideline');
+    } catch (error) {
+      setAuthError(getFriendlyAuthError(error));
     }
   };
 
@@ -71,10 +92,41 @@ export default function LoginScreen() {
           </View>
         </View>
         <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to continue to your account</Text>
+        <Text style={styles.subtitle}>
+          Sign in to continue to your account
+        </Text>
       </View>
 
       <View style={styles.form}>
+        {isMockMode ? (
+          <View style={styles.devCard}>
+            <Text style={styles.devTitle}>Developer Testing Mode</Text>
+            <Text style={styles.devText}>
+              Mock mode is active. Use the tester entry for fast role switching, or sign in with any valid-looking email.
+            </Text>
+            <View style={styles.devButtons}>
+              <TouchableOpacity
+                style={[styles.devButton, styles.devButtonPrimary]}
+                onPress={() => router.push('/roleselection')}
+              >
+                <Text style={styles.devButtonPrimaryText}>Open Tester Entry</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => handleStartDemo('commuter')}
+              >
+                <Text style={styles.devButtonText}>Demo Commuter</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => handleStartDemo('driver')}
+              >
+                <Text style={styles.devButtonText}>Demo Driver</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.inputGroup}>
           {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
           <View
@@ -116,7 +168,7 @@ export default function LoginScreen() {
               onBlur={() => setTouched({ ...touched, password: true })}
             />
             <TouchableOpacity
-              onPress={() => setShowPassword((s) => !s)}
+              onPress={() => setShowPassword((showing) => !showing)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={20} color={PRIMARY} />
@@ -138,7 +190,7 @@ export default function LoginScreen() {
             </>
           )}
         </TouchableOpacity>
-        <FormErrorText error={authError ?? session.errorMessage ?? undefined} />
+        <FormErrorText error={authError ?? undefined} />
 
         <View style={styles.footerRow}>
           <Text style={styles.footerText}>Don't have an account?</Text>
@@ -171,6 +223,50 @@ const styles = StyleSheet.create({
   title: { color: '#fff', fontSize: 28, fontWeight: '800', marginBottom: 6 },
   subtitle: { color: '#D1FAE5', fontSize: 13, fontWeight: '600' },
   form: { paddingHorizontal: 20, paddingTop: 28 },
+  devCard: {
+    marginBottom: 20,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  devTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: TEXT,
+    marginBottom: 6,
+  },
+  devText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#166534',
+  },
+  devButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+  },
+  devButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+  },
+  devButtonPrimary: {
+    backgroundColor: PRIMARY,
+  },
+  devButtonText: {
+    color: '#166534',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  devButtonPrimaryText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
   inputGroup: {
     marginBottom: 14,
   },
@@ -196,7 +292,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 18,
+    marginBottom: 10,
   },
   loginText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   footerRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, alignItems: 'center' },

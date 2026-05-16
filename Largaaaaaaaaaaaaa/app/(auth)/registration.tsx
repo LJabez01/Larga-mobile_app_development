@@ -11,9 +11,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getDefaultAppPath, useAuthSession } from '@/components/auth/AuthSessionProvider';
-import { getAuthErrorMessage, registerCommuter } from '@/services/auth';
 import FormErrorText from '../../components/FormErrorText';
+import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 import styles from './registration.styles';
 import { validateRegistrationForm } from '../../validations/validation';
 
@@ -33,7 +32,7 @@ export default function CreateAccountScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const session = useAuthSession();
+  const { register, session, status } = useAppSession();
 
   const validation = useMemo(
     () =>
@@ -48,8 +47,8 @@ export default function CreateAccountScreen() {
     [username, email, password, confirmPassword, agreed]
   );
 
-  if (session.status === 'signedIn' && session.profile) {
-    return <Redirect href={getDefaultAppPath(session.profile.role)} />;
+  if (status === 'signedIn' && session) {
+    return <Redirect href={getDefaultAppPath(session.role)} />;
   }
 
   const handleCreateAccount = async () => {
@@ -63,13 +62,14 @@ export default function CreateAccountScreen() {
     setIsSubmitting(true);
 
     try {
-      await registerCommuter({
+      await register({
         email,
         password,
         displayName: username,
       });
+      router.push('/guideline');
     } catch (error) {
-      setAuthError(getAuthErrorMessage(error));
+      setAuthError(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -233,7 +233,7 @@ export default function CreateAccountScreen() {
               </>
             )}
           </TouchableOpacity>
-          <FormErrorText error={authError ?? session.errorMessage ?? undefined} />
+          <FormErrorText error={authError ?? undefined} />
 
           <View style={styles.signInContainer}>
             <Text style={styles.signInPrompt}>Already have an account? </Text>

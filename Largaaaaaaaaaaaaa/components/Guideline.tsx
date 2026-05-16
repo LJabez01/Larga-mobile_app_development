@@ -12,8 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-
-import { getDefaultAppPath, useAuthSession } from '@/components/auth/AuthSessionProvider';
+import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 
 const { width, height } = Dimensions.get('window');
 const PRIMARY = '#10B981';
@@ -60,11 +59,10 @@ interface GuidelineProps {
 export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
-  const session = useAuthSession();
-  const defaultPath =
-    session.status === 'signedIn' && session.profile
-      ? getDefaultAppPath(session.profile.role)
-      : '/login';
+  const { session, status } = useAppSession();
+  const defaultPath = status === 'signedIn' && session
+    ? getDefaultAppPath(session.role)
+    : '/login';
 
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {

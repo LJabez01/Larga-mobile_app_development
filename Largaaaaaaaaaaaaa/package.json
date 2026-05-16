@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test \"lib/**/*.test.ts\" \"services/**/*.test.ts\"",
     "seed:foundation": "node scripts/seed-foundation.mjs",
-    "seed:foundation:dry": "node scripts/seed-foundation.mjs --dry-run"
+    "seed:foundation:dry": "node scripts/seed-foundation.mjs --dry-run",
+    "seed:transport": "node --import tsx scripts/seed-transport-catalog.ts",
+    "seed:transport:apply": "node --import tsx scripts/seed-transport-catalog.ts --apply",
+    "rules:smoke": "npx -y firebase-tools@latest emulators:exec --only auth,firestore \"node --import tsx scripts/rules-smoke.ts\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -41,8 +44,9 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "firebase-admin": "^13.9.0",
     "react-test-renderer": "19.1.0",
-    "tsx": "^4.19.2",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.2"
   },
   "private": true

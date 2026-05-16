@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
-import { View, TouchableOpacity, TextInput, Text, Image, FlatList, Keyboard } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { View, TouchableOpacity, TextInput, Text, Image, FlatList, Keyboard, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+
 import { commuterStyles as styles } from './commuter-map.styles';
 import {
   getMapbox,
@@ -16,37 +17,45 @@ import {
 import MapFallback from '../shared/MapFallback';
 import SettingsDrawer from '../../settings';
 import RideInfoPanel from '../RideInfoPanel';
-
-const ROUTE_OPTIONS = [
-  'Santa Maria - Norzagaray',
-  'Santa Maria - Halang',
-  'Santa Maria - San Jose',
-];
+import { useLiveData } from '@/components/providers/LiveDataProvider';
 
 function fuzzyMatch(query: string, target: string): boolean {
   const q = query.toLowerCase().trim();
   const t = target.toLowerCase();
-  if (!q) return true;
-  let qi = 0;
-  for (let i = 0; i < t.length && qi < q.length; i++) {
-    if (t[i] === q[qi]) qi++;
+
+  if (!q) {
+    return true;
   }
-  return qi === q.length;
+
+  let queryIndex = 0;
+
+  for (let index = 0; index < t.length && queryIndex < q.length; index += 1) {
+    if (t[index] === q[queryIndex]) {
+      queryIndex += 1;
+    }
+  }
+
+  return queryIndex === q.length;
 }
 
 export default function CommuterMapScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [rideInfoVisible, setRideInfoVisible] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<'bus' | 'jeep' | null>(null);
-  const [selectedCoordinate, setSelectedCoordinate] = useState<[number, number] | null>(null);
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const searchInputRef = useRef<TextInput>(null);
   const router = useRouter();
+  const { snapshot } = useLiveData();
   const Mapbox = getMapbox();
 
-  const filteredRoutes = ROUTE_OPTIONS.filter((route) => fuzzyMatch(searchText, route));
+  const filteredRoutes = snapshot.routes.filter((route) => fuzzyMatch(searchText, route.label));
+  const visibleVehicles = selectedRouteId
+    ? snapshot.vehicles.filter((vehicle) => vehicle.routeId === selectedRouteId)
+    : snapshot.vehicles;
+  const selectedRouteLabel = snapshot.routes.find((route) => route.id === selectedRouteId)?.label ?? null;
+  const unreadCount = snapshot.notificationsByRole.commuter.filter((notification) => !notification.read).length;
 
   function openSearch() {
     setSearchExpanded(true);
@@ -60,8 +69,8 @@ export default function CommuterMapScreen() {
     Keyboard.dismiss();
   }
 
-  function handleSelectRoute(route: string) {
-    setSelectedRoute(route);
+  function handleSelectRoute(routeId: string) {
+    setSelectedRouteId(routeId);
     closeSearch();
   }
 
@@ -69,7 +78,6 @@ export default function CommuterMapScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ── Expanded search overlay ── */}
       {searchExpanded && (
         <View style={styles.searchOverlay}>
           <View style={styles.searchOverlayInputRow}>
@@ -90,17 +98,17 @@ export default function CommuterMapScreen() {
 
           <FlatList
             data={filteredRoutes}
-            keyExtractor={(item) => item}
+            keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             style={styles.searchRouteList}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.searchRouteItem}
-                onPress={() => handleSelectRoute(item)}
+                onPress={() => handleSelectRoute(item.id)}
                 activeOpacity={0.75}
               >
                 <Ionicons name="navigate-outline" size={18} color="#10b981" style={{ marginRight: 12 }} />
-                <Text style={styles.searchRouteItemText}>{item}</Text>
+                <Text style={styles.searchRouteItemText}>{item.label}</Text>
               </TouchableOpacity>
             )}
             ListEmptyComponent={
@@ -130,91 +138,80 @@ export default function CommuterMapScreen() {
           pitch={MAP_PITCH}
         />
 
-        <Mapbox.MarkerView coordinate={[120.987, 14.843]}>
-          <TouchableOpacity
-            style={[
-              styles.mapVehicleButton,
-              styles.mapVehicleButtonBus,
-              selectedVehicle === 'bus' && styles.mapVehicleButtonActive,
-            ]}
-            activeOpacity={0.85}
-            onPress={() => {
-              setSelectedVehicle('bus');
-              setSelectedCoordinate([120.987, 14.843]);
-              setRideInfoVisible(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="View bus route"
-          >
-            <View style={styles.vehicleComingRing} />
-            <Image source={BUS_ICON} style={styles.mapVehicleIcon} />
-          </TouchableOpacity>
-        </Mapbox.MarkerView>
-
-        <Mapbox.MarkerView coordinate={[121.010, 14.852]}>
-          <TouchableOpacity
-            style={[
-              styles.mapVehicleButton,
-              styles.mapVehicleButtonJeep,
-              selectedVehicle === 'jeep' && styles.mapVehicleButtonActive,
-            ]}
-            activeOpacity={0.85}
-            onPress={() => {
-              setSelectedVehicle('jeep');
-              setSelectedCoordinate([121.010, 14.852]);
-              setRideInfoVisible(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="View jeep route"
-          >
-            <View style={styles.vehicleComingRing} />
-            <Image source={JEEP_ICON} style={styles.mapVehicleIcon} />
-          </TouchableOpacity>
-        </Mapbox.MarkerView>
+        {visibleVehicles.map((vehicle) => (
+          <Mapbox.MarkerView key={vehicle.id} coordinate={vehicle.coordinate}>
+            <TouchableOpacity
+              style={[
+                styles.mapVehicleButton,
+                vehicle.type === 'bus' ? styles.mapVehicleButtonBus : styles.mapVehicleButtonJeep,
+                selectedVehicle === vehicle.type && styles.mapVehicleButtonActive,
+              ]}
+              activeOpacity={0.85}
+              onPress={() => {
+                setSelectedVehicle(vehicle.type);
+                setRideInfoVisible(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${vehicle.type} details`}
+            >
+              <View style={styles.vehicleComingRing} />
+              <Image source={vehicle.type === 'bus' ? BUS_ICON : JEEP_ICON} style={styles.mapVehicleIcon} />
+            </TouchableOpacity>
+          </Mapbox.MarkerView>
+        ))}
       </Mapbox.MapView>
 
-      {/* ── Top bar (always visible when search is closed) ── */}
       {!searchExpanded && (
-        <View style={styles.topBarRow}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => setDrawerVisible(true)}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="menu" size={24} color="#0f172a" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.searchBar, selectedRoute ? styles.searchBarSelected : null]}
-            onPress={openSearch}
-            activeOpacity={0.85}
-          >
-            <Text
-              style={[
-                styles.searchInput,
-                selectedRoute ? styles.searchInputSelected : styles.searchInputPlaceholder,
-              ]}
-              numberOfLines={1}
+        <>
+          <View style={styles.topBarRow}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => setDrawerVisible(true)}
+              activeOpacity={0.85}
             >
-              {selectedRoute ?? 'Select route'}
-            </Text>
-          </TouchableOpacity>
+              <Ionicons name="menu" size={24} color="#0f172a" />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.iconButton}
-            activeOpacity={0.85}
-            onPress={() => router.push('/notifications')}
-          >
-            <Ionicons name="notifications-outline" size={22} color="#0f172a" />
-            <View style={styles.notificationDot} />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.searchBar, selectedRouteLabel ? styles.searchBarSelected : null]}
+              onPress={openSearch}
+              activeOpacity={0.85}
+            >
+              <Text
+                style={[
+                  styles.searchInput,
+                  selectedRouteLabel ? styles.searchInputSelected : styles.searchInputPlaceholder,
+                ]}
+                numberOfLines={1}
+              >
+                {selectedRouteLabel ?? 'Select route'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconButton}
+              activeOpacity={0.85}
+              onPress={() => router.push('/notifications')}
+            >
+              <Ionicons name="notifications-outline" size={22} color="#0f172a" />
+              {unreadCount > 0 ? <View style={styles.notificationDot} /> : null}
+            </TouchableOpacity>
+          </View>
+
+          <View style={commuterOverlayStyles.statusCard}>
+            <Text style={commuterOverlayStyles.statusTitle}>
+              {snapshot.activeTrip ? 'Live route activity' : 'Waiting for a live trip'}
+            </Text>
+            <Text style={commuterOverlayStyles.statusText}>
+              {snapshot.activeTrip
+                ? `${snapshot.activeTrip.routeLabel} is active. ${visibleVehicles.length} visible vehicle${visibleVehicles.length === 1 ? '' : 's'} on your current filter.`
+                : 'Ask the UI team to start a mock driver trip, or switch to Firebase mode when real live data is ready.'}
+            </Text>
+          </View>
+        </>
       )}
 
-      <SettingsDrawer
-        visible={drawerVisible}
-        onClose={() => setDrawerVisible(false)}
-      />
+      <SettingsDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
 
       <RideInfoPanel
         visible={rideInfoVisible}
@@ -227,3 +224,27 @@ export default function CommuterMapScreen() {
     </View>
   );
 }
+
+const commuterOverlayStyles = StyleSheet.create({
+  statusCard: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 32,
+    borderRadius: 18,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  statusTitle: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  statusText: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+});
