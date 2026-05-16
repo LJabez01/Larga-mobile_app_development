@@ -242,4 +242,3 @@ export const firebaseAuthService: AuthService = {
     });
   },
 };
-

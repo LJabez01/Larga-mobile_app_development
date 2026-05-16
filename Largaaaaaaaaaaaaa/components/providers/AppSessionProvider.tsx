@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { authService } from '@/services/auth';
+import { authService } from '@/services/auth/index';
 import type { AppRole, AppSession, AuthSnapshot, DemoRole, RegisterInput, SignInInput } from '@/services/contracts/auth';
 import { getAppMode } from '@/services/runtime/app-mode';
 
@@ -99,4 +99,3 @@ export function useAppSession() {
 
   return context;
 }
-

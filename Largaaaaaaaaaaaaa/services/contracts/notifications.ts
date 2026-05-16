@@ -10,4 +10,3 @@ export interface NotificationItem {
   icon?: string;
   read: boolean;
 }
-

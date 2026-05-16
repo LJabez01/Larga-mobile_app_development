@@ -18,4 +18,3 @@ export const DEMO_USERS: Record<DemoRole, DemoUserFixture> = {
     displayName: 'Driver Demo',
   },
 };
-

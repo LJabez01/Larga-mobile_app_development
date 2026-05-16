@@ -15,4 +15,3 @@ export function getAppMode(): AppMode {
 export function isMockMode(): boolean {
   return getAppMode() === 'mock';
 }
-

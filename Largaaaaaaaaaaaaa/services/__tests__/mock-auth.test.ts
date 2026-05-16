@@ -28,4 +28,3 @@ test('mock sign in infers driver from email and logout clears session', async ()
   assert.equal(signOutSnapshot.status, 'signedOut');
   assert.equal(signOutSnapshot.session, null);
 });
-

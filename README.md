@@ -98,6 +98,19 @@ Current supporting files:
 
 The current project direction is free-first where possible, so the MVP should avoid unnecessary dependence on paid-only Firebase features.
 
+Current Firebase foundation assumptions:
+- public signup creates only `commuter` users
+- `driver` and `admin` promotion happens only through a trusted operator path
+- the one-active-trip-per-driver MVP guard is enforced by storing each driver's active trip at `activeTrips/{driverId}`
+
+Firebase foundation workflow from the app workspace:
+
+```powershell
+npm run seed:foundation:dry
+npm run seed:foundation
+npx -y firebase-tools@latest emulators:exec --only auth,firestore "node scripts/rules-smoke.mjs"
+```
+
 ## Local setup
 From the Expo app directory:
 

@@ -7,11 +7,13 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test": "node --import tsx --test \"lib/**/*.test.ts\" \"services/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"lib/**/*.test.ts\" \"services/**/*.test.ts\"",
+    "seed:foundation": "node scripts/seed-foundation.mjs",
+    "seed:foundation:dry": "node scripts/seed-foundation.mjs --dry-run",
     "seed:transport": "node --import tsx scripts/seed-transport-catalog.ts",
     "seed:transport:apply": "node --import tsx scripts/seed-transport-catalog.ts --apply",
-    "rules:smoke": "node --import tsx scripts/rules-smoke.ts"
+    "rules:smoke": "npx -y firebase-tools@latest emulators:exec --only auth,firestore \"node --import tsx scripts/rules-smoke.ts\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

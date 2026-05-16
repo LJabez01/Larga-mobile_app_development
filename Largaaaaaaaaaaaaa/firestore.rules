@@ -10,8 +10,8 @@ service cloud.firestore {
       return /databases/$(database)/documents/users/$(uid);
     }
 
-    function activeTripPath(uid) {
-      return /databases/$(database)/documents/activeTrips/$(uid);
+    function activeTripPath(driverId) {
+      return /databases/$(database)/documents/activeTrips/$(driverId);
     }
 
     function isOwner(uid) {

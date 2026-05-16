@@ -42,4 +42,3 @@ export interface AuthService {
   startDemoSession(role: DemoRole): Promise<AuthSnapshot>;
   reset(): Promise<void>;
 }
-

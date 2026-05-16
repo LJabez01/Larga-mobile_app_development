@@ -41,4 +41,3 @@ export const DRIVER_NOTIFICATIONS: NotificationItem[] = [
     read: true,
   },
 ];
-
