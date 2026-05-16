@@ -1,19 +1,38 @@
+import { Redirect, useRouter } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function DriverScreen() {
+import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
+
+export default function RoleSelectionScreen() {
   const router = useRouter();
+  const { isMockMode, session, startDemoSession, status } = useAppSession();
+
+  if (!isMockMode) {
+    return <Redirect href="/login" />;
+  }
+
+  if (status === 'signedIn' && session) {
+    return <Redirect href={getDefaultAppPath(session.role)} />;
+  }
+
+  const handleSelectRole = async (role: 'commuter' | 'driver') => {
+    await startDemoSession(role);
+    router.replace('/guideline');
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Continue as</Text>
+      <Text style={styles.title}>Developer Tester Entry</Text>
+      <Text style={styles.subtitle}>
+        Mock mode is active. Choose a role to jump into the same app flow without touching Firebase.
+      </Text>
 
       <View style={styles.buttonRow}>
         <TouchableOpacity
           style={styles.roleButton}
           activeOpacity={0.85}
-          onPress={() => router.push('/commuter' as any)}
+          onPress={() => handleSelectRole('commuter')}
         >
           <Ionicons name="person-outline" size={40} color="#ffffff" />
           <Text style={styles.roleLabel}>Commuter</Text>
@@ -22,12 +41,16 @@ export default function DriverScreen() {
         <TouchableOpacity
           style={styles.roleButton}
           activeOpacity={0.85}
-          onPress={() => router.push('/driver' as any)}
+          onPress={() => handleSelectRole('driver')}
         >
           <Ionicons name="car-outline" size={40} color="#ffffff" />
           <Text style={styles.roleLabel}>Driver</Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace('/login')}>
+        <Text style={styles.secondaryButtonText}>Back to Login</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -38,18 +61,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 32,
   },
   title: {
     fontSize: 26,
     fontWeight: '800',
     color: '#0f172a',
-    marginBottom: 36,
+    marginBottom: 12,
     letterSpacing: -0.4,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 28,
   },
   buttonRow: {
     flexDirection: 'row',
     gap: 16,
+    marginBottom: 20,
   },
   roleButton: {
     width: 140,
@@ -69,5 +101,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  secondaryButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  secondaryButtonText: {
+    color: '#0f172a',
+    fontWeight: '700',
   },
 });

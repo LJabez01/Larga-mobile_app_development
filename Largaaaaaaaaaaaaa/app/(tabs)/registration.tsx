@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   TextInput,
@@ -9,9 +10,10 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome6 } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 import styles from './registration.styles';
 import ImageCropper from '../../components/ImageCropper';
 import FormErrorText from '../../components/FormErrorText';
@@ -48,9 +50,12 @@ export default function CreateAccountScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isDriver = selectedRole === 'Driver';
   const router = useRouter();
+  const { register, session, status } = useAppSession();
 
   // Real-time validation
   const validation = useMemo(
@@ -121,12 +126,36 @@ export default function CreateAccountScreen() {
     setCroppingImage(null);
   };
 
-  const handleCreateAccount = () => {
+  if (status === 'signedIn' && session) {
+    return <Redirect href={getDefaultAppPath(session.role)} />;
+  }
+
+  const handleCreateAccount = async () => {
     setSubmitted(true);
 
-    if (validation.isValid) {
-      // Navigate to login on success
-      router.push('/login');
+    if (!validation.isValid) {
+      return;
+    }
+
+    if (selectedRole === 'Driver') {
+      setAuthError('Driver accounts are assigned through a trusted process. Use commuter signup or the mock tester entry.');
+      return;
+    }
+
+    setAuthError(null);
+    setIsSubmitting(true);
+
+    try {
+      await register({
+        email,
+        password,
+        displayName: username,
+      });
+      router.push('/guideline');
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -450,9 +479,16 @@ export default function CreateAccountScreen() {
 
           {/* Sign Up Button */}
           <TouchableOpacity style={styles.signUpButton} activeOpacity={0.85} onPress={handleCreateAccount}>
-            <Text style={styles.signUpText}>Create Account</Text>
-            <Ionicons name="arrow-forward" size={20} color="#fff" />
+            {isSubmitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={styles.signUpText}>Create Account</Text>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+              </>
+            )}
           </TouchableOpacity>
+          <FormErrorText error={authError ?? undefined} />
 
           {/* Sign In Link */}
           <View style={styles.signInContainer}>

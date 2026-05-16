@@ -1,16 +1,19 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Platform,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  Platform,
+  View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+
 import FormErrorText from '../../components/FormErrorText';
+import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 import { validateForgotPasswordForm } from '../../validations/validation';
 
 const PRIMARY = '#10B981';
@@ -18,23 +21,50 @@ const BG_LIGHT = '#F7FEF8';
 const TEXT = '#0F172A';
 const ERROR_COLOR = '#EF4444';
 
+function getFriendlyAuthError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Something went wrong. Please try again.';
+}
+
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const { requestPasswordReset, session, status } = useAppSession();
 
-  // Real-time validation
   const validation = useMemo(
     () => validateForgotPasswordForm({ email }),
     [email]
   );
 
-  const handleSend = () => {
+  if (status === 'signedIn' && session) {
+    return <Redirect href={getDefaultAppPath(session.role)} />;
+  }
+
+  const handleSend = async () => {
     setSubmitted(true);
-    if (validation.isValid) {
+
+    if (!validation.isValid) {
+      return;
+    }
+
+    setAuthError(null);
+    setIsSubmitting(true);
+
+    try {
+      await requestPasswordReset(email);
       setSent(true);
+    } catch (error) {
+      setAuthError(getFriendlyAuthError(error));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -76,9 +106,16 @@ export default function ForgotPasswordScreen() {
             </View>
 
             <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.85}>
-              <Text style={styles.sendText}>Send Reset Link</Text>
-              <Ionicons name="send" size={16} color="#fff" />
+              {isSubmitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={styles.sendText}>Send Reset Link</Text>
+                  <Ionicons name="send" size={16} color="#fff" />
+                </>
+              )}
             </TouchableOpacity>
+            <FormErrorText error={authError ?? undefined} />
 
             <View style={styles.linksRow}>
               <TouchableOpacity onPress={() => router.push('/login')}>
@@ -90,7 +127,7 @@ export default function ForgotPasswordScreen() {
           <View style={styles.sentBox}>
             <MaterialCommunityIcons name="check-circle-outline" size={48} color={PRIMARY} />
             <Text style={styles.sentTitle}>Check your inbox</Text>
-            <Text style={styles.sentText}>We’ve sent a password reset link to {email || 'your email'}.</Text>
+            <Text style={styles.sentText}>We&apos;ve sent a password reset link to {email || 'your email'}.</Text>
             <TouchableOpacity style={styles.sentButton} onPress={() => router.push('/login')}>
               <Text style={styles.sentButtonText}>Return to Sign In</Text>
             </TouchableOpacity>
@@ -115,7 +152,6 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 26, fontWeight: '800', color: TEXT, marginBottom: 6 },
   subtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', paddingHorizontal: 40 },
-
   content: { paddingHorizontal: 20, paddingTop: 28 },
   inputGroup: {
     marginBottom: 16,
@@ -132,7 +168,6 @@ const styles = StyleSheet.create({
   },
   icon: { marginRight: 12 },
   input: { flex: 1, fontSize: 15, color: TEXT, fontWeight: '500' },
-
   sendButton: {
     backgroundColor: PRIMARY,
     borderRadius: 12,
@@ -141,13 +176,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sendText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-
   linksRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 6 },
   link: { color: PRIMARY, fontWeight: '700', fontSize: 14 },
-
   sentBox: { alignItems: 'center', paddingTop: 20 },
   sentTitle: { fontSize: 20, fontWeight: '800', color: TEXT, marginTop: 12 },
   sentText: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginTop: 8, paddingHorizontal: 28 },

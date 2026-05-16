@@ -1,63 +1,73 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Stack } from 'expo-router';
 
 export default function TabLayout() {
   return (
-    <Tabs
+    <Stack
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          display: 'none',
-        },
-      }}>
-      <Tabs.Screen
+      }}
+    >
+      <Stack.Screen
         name="index"
         options={{
           title: 'Home',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="login"
         options={{
           title: 'Login',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="registration"
         options={{
           title: 'Registration',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="forgot-password"
         options={{
           title: 'Forgot Password',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="guideline"
         options={{
           title: 'Guideline',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
+        name="roleselection"
+        options={{
+          title: 'Role Selection',
+        }}
+      />
+      <Stack.Screen
         name="commuter"
         options={{
           title: 'Commuter',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
         name="driver"
         options={{
           title: 'Driver',
         }}
       />
-      <Tabs.Screen
+      <Stack.Screen
+        name="notifications"
+        options={{
+          title: 'Notifications',
+        }}
+      />
+      <Stack.Screen
         name="two"
         options={{
           title: 'Two',
         }}
       />
-    </Tabs>
+    </Stack>
   );
 }

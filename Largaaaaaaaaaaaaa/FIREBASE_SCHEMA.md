@@ -42,11 +42,13 @@ Rules intent:
 Canonical route records managed by admins.
 
 Suggested fields:
+- `id`
 - `name`
-- `code`
-- `origin`
-- `destination`
-- `stops`
+- `label`
+- `originTerminalId`
+- `destinationTerminalId`
+- `vehicleType`
+- `coordinates`
 - `isActive`
 - `createdAt`
 - `updatedAt`
@@ -55,19 +57,35 @@ Rules intent:
 - Any signed-in user can read routes.
 - Only admins can create or edit routes.
 
-### `activeTrips/{tripId}`
-One active trip record per driver session.
+### `terminals/{terminalId}`
+Canonical terminal records used to build valid driver route pairs.
+
+Suggested fields:
+- `id`
+- `label`
+- `coordinate`
+- `isActive`
+
+Rules intent:
+- Any signed-in user can read terminals.
+- Only admins can create or edit terminals.
+
+### `activeTrips/{driverId}`
+One active trip record per driver. The document ID should match the driver ID to enforce one active trip per driver without Cloud Functions.
 
 Suggested fields:
 - `driverId`
 - `routeId`
+- `originTerminalId`
+- `destinationTerminalId`
 - `status`
 - `startedAt`
 - `updatedAt`
 
 Rules intent:
 - Signed-in users can read active trips for map visibility.
-- Driver can create and manage only their own active trip.
+- Driver can create only one active trip at their own document path.
+- Ending a trip should delete the operational document.
 - Admin can manage any trip.
 
 ### `vehicleLocations/{driverId}`
@@ -88,6 +106,7 @@ Suggested fields:
 Rules intent:
 - Signed-in users can read live vehicle locations.
 - Driver can write only their own current location.
+- Vehicle location writes must match the driver's current `activeTrips/{driverId}` record.
 - Admin can moderate or clean up records if needed.
 
 ### `tripEvents/{eventId}`
@@ -122,5 +141,6 @@ Rules intent:
 After rules are in place, the next implementation slice should be:
 1. Create user documents on first sign-in.
 2. Add role-aware backend logic for driver versus commuter access.
-3. Implement driver trip start and stop writes.
-4. Implement live location writes to `vehicleLocations/{driverId}`.
+3. Seed canonical terminals and route geometry into Firestore.
+4. Implement driver trip start and stop writes at `activeTrips/{driverId}`.
+5. Implement live location writes to `vehicleLocations/{driverId}`.

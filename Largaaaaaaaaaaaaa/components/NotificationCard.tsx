@@ -1,26 +1,11 @@
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 
-export type NotificationType = 'info' | 'warning' | 'success' | 'alert';
-
-export interface Notification {
-  id: string;
-  section?: string;
-  title: string;
-  message: string;
-  timestamp: string;
-  type: NotificationType;
-  icon?: string;
-  read: boolean;
-  action?: {
-    label: string;
-    onPress: () => void;
-  };
-}
+import type { NotificationItem } from '@/services/contracts/notifications';
 
 interface NotificationCardProps {
-  notification: Notification;
+  notification: NotificationItem;
   onPress?: () => void;
   onToggleRead?: (id: string, read: boolean) => void;
 }

@@ -13,6 +13,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 
 const { width, height } = Dimensions.get('window');
 const PRIMARY = '#10B981';
@@ -58,6 +59,7 @@ interface GuidelineProps {
 export default function Guideline({ onComplete }: GuidelineProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
+  const { session, status } = useAppSession();
   const titleOpacity = useRef(new Animated.Value(0)).current;
   const titleTranslate = useRef(new Animated.Value(20)).current;
   const descriptionOpacity = useRef(new Animated.Value(0)).current;
@@ -108,7 +110,11 @@ export default function Guideline({ onComplete }: GuidelineProps) {
       if (onComplete) {
         onComplete();
       } else {
-        router.push('/roleselection' as any);
+        if (status === 'signedIn' && session) {
+          router.replace(getDefaultAppPath(session.role));
+        } else {
+          router.replace('/login');
+        }
       }
     }
   };

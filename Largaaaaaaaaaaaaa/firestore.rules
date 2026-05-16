@@ -10,6 +10,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/users/$(uid);
     }
 
+    function activeTripPath(uid) {
+      return /databases/$(database)/documents/activeTrips/$(uid);
+    }
+
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
@@ -24,6 +28,12 @@ service cloud.firestore {
       return signedIn()
         && exists(userDocPath(request.auth.uid))
         && get(userDocPath(request.auth.uid)).data.role == 'driver';
+    }
+
+    function activeTripMatchesRequest(driverId, routeId) {
+      return exists(activeTripPath(driverId))
+        && get(activeTripPath(driverId)).data.driverId == driverId
+        && get(activeTripPath(driverId)).data.routeId == routeId;
     }
 
     match /users/{uid} {
@@ -64,24 +74,35 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /activeTrips/{tripId} {
+    match /terminals/{terminalId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /activeTrips/{driverId} {
       allow read: if signedIn();
 
       allow create: if isDriver()
+        && isOwner(driverId)
         && request.resource.data.driverId == request.auth.uid
+        && request.resource.data.routeId is string
+        && request.resource.data.originTerminalId is string
+        && request.resource.data.destinationTerminalId is string
+        && request.resource.data.originTerminalId != request.resource.data.destinationTerminalId
         && request.resource.data.status == 'active'
         && request.resource.data.keys().hasOnly([
           'driverId',
           'routeId',
+          'originTerminalId',
+          'destinationTerminalId',
           'status',
           'startedAt',
           'updatedAt'
         ]);
 
-      allow update: if (isDriver() && resource.data.driverId == request.auth.uid)
-        || isAdmin();
+      allow update: if false;
 
-      allow delete: if (isDriver() && resource.data.driverId == request.auth.uid)
+      allow delete: if (isDriver() && isOwner(driverId) && resource.data.driverId == request.auth.uid)
         || isAdmin();
     }
 
@@ -90,6 +111,8 @@ service cloud.firestore {
 
       allow create, update: if ((isDriver() && isOwner(driverId)) || isAdmin())
         && request.resource.data.driverId == driverId
+        && request.resource.data.tripId == driverId
+        && activeTripMatchesRequest(driverId, request.resource.data.routeId)
         && request.resource.data.keys().hasOnly([
           'driverId',
           'tripId',
@@ -103,12 +126,15 @@ service cloud.firestore {
           'updatedAt'
         ]);
 
-      allow delete: if isAdmin();
+      allow delete: if ((isDriver() && isOwner(driverId) && resource.data.driverId == request.auth.uid)
+        || isAdmin());
     }
 
     match /tripEvents/{eventId} {
       allow create: if isDriver()
         && request.resource.data.driverId == request.auth.uid
+        && request.resource.data.tripId == request.auth.uid
+        && request.resource.data.eventType in ['trip_started', 'trip_ended']
         && request.resource.data.keys().hasOnly([
           'tripId',
           'driverId',

@@ -16,6 +16,8 @@ import AccountScreen from "./account";
 import FAQsScreen from "./faqs";
 import PreferencesScreen from "./preferences";
 import { useRouter } from "expo-router";
+import { useAppSession } from '@/components/providers/AppSessionProvider';
+import { useLiveData } from '@/components/providers/LiveDataProvider';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.82;
@@ -60,6 +62,8 @@ type Props = {
 
 export default function SettingsDrawer({ visible, onClose }: Props) {
   const router = useRouter();
+  const { isMockMode, session, signOut, resetMockState } = useAppSession();
+  const { reset } = useLiveData();
   const [activePage, setActivePage] = useState<ActivePage>(null);
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -144,8 +148,8 @@ export default function SettingsDrawer({ visible, onClose }: Props) {
               <Feather name="x" size={20} color="#6b7280" />
             </TouchableOpacity>
           </View>
-          <Text style={styles.drawerUserName}>My Account</Text>
-          <Text style={styles.drawerUserEmail}>user@example.com</Text>
+          <Text style={styles.drawerUserName}>{session?.displayName ?? 'My Account'}</Text>
+          <Text style={styles.drawerUserEmail}>{session?.email ?? 'user@example.com'}</Text>
         </View>
 
         <View style={styles.drawerDivider} />
@@ -175,14 +179,31 @@ export default function SettingsDrawer({ visible, onClose }: Props) {
             <TouchableOpacity
               style={styles.logoutBtn}
               activeOpacity={0.8}
-              onPress={() => {
+              onPress={async () => {
                 handleClose();
-                router.push('/login');
+                await signOut();
+                router.replace('/login');
               }}
             >
               <Feather name="log-out" size={18} color="#ef4444" />
               <Text style={styles.logoutText}>Log Out</Text>
             </TouchableOpacity>
+
+            {isMockMode ? (
+              <TouchableOpacity
+                style={styles.resetBtn}
+                activeOpacity={0.8}
+                onPress={async () => {
+                  await resetMockState();
+                  await reset();
+                  handleClose();
+                  router.replace('/login');
+                }}
+              >
+                <Feather name="refresh-cw" size={18} color="#158251" />
+                <Text style={styles.resetText}>Reset Mock State</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </ScrollView>
       </Animated.View>
@@ -319,5 +340,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#ef4444",
+  },
+  resetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: "#ecfdf5",
+    marginTop: 12,
+  },
+  resetText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#158251",
   },
 });

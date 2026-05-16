@@ -7,14 +7,16 @@ import {
   SectionList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import NotificationCard, { Notification } from './NotificationCard';
+import NotificationCard from './NotificationCard';
+import type { NotificationItem } from '@/services/contracts/notifications';
 
 interface NotificationsScreenProps {
   userRole?: 'driver' | 'commuter';
   onBack?: () => void;
+  notifications?: NotificationItem[];
 }
 
-const COMMUTER_NOTIFICATIONS: Notification[] = [
+const COMMUTER_NOTIFICATIONS: NotificationItem[] = [
   {
     id: '1',
     section: 'Today',
@@ -53,7 +55,7 @@ const COMMUTER_NOTIFICATIONS: Notification[] = [
   },
 ];
 
-const DRIVER_NOTIFICATIONS: Notification[] = [
+const DRIVER_NOTIFICATIONS: NotificationItem[] = [
   {
     id: '1',
     section: 'Today',
@@ -95,11 +97,13 @@ const DRIVER_NOTIFICATIONS: Notification[] = [
 export default function NotificationsScreen({
   userRole = 'commuter',
   onBack,
+  notifications: providedNotifications,
 }: NotificationsScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'unread'>('all');
 
   const notifications =
-    userRole === 'driver' ? DRIVER_NOTIFICATIONS : COMMUTER_NOTIFICATIONS;
+    providedNotifications ??
+    (userRole === 'driver' ? DRIVER_NOTIFICATIONS : COMMUTER_NOTIFICATIONS);
 
   const filteredNotifications =
     selectedFilter === 'unread'
@@ -109,7 +113,7 @@ export default function NotificationsScreen({
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const sections = useMemo(() => {
-    return filteredNotifications.reduce<Array<{ title: string; data: Notification[] }>>(
+    return filteredNotifications.reduce<Array<{ title: string; data: NotificationItem[] }>>(
       (result, notification) => {
         const sectionTitle = notification.section ?? 'Updates';
         const existingSection = result.find((entry) => entry.title === sectionTitle);
