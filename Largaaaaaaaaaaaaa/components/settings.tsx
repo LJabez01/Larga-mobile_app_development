@@ -1,3 +1,4 @@
+// Settings Screen - exposes account tools, mock reset, and supporting settings sections.
 import Feather from "@expo/vector-icons/Feather";
 import { useRef, useState } from "react";
 import {

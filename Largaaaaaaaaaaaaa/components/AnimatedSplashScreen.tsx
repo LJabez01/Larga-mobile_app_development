@@ -1,3 +1,4 @@
+// Animated Splash Screen - plays the branded splash transition before the app loads.
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Animated, {

@@ -1,3 +1,4 @@
+// Transport Seed Script - syncs the coded terminal and route catalog into Firestore.
 import fs from 'node:fs';
 
 import { cert, getApp, getApps, initializeApp } from 'firebase-admin/app';

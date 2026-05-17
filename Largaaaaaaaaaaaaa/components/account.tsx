@@ -1,3 +1,4 @@
+// Account Screen - displays the user profile and account controls.
 import Feather from "@expo/vector-icons/Feather";
 import { useState } from "react";
 import {

@@ -1,3 +1,4 @@
+// Index Screen - redirects users into the correct auth or app route.
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
 

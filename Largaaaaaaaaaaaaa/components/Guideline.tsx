@@ -1,3 +1,4 @@
+// Guideline Component - walks the user into the correct role-specific app entry point.
 import React, { useState } from 'react';
 import {
   View,

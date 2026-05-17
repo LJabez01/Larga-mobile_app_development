@@ -1,3 +1,4 @@
+// Notification Fixtures - provide mock notifications for commuter and driver flows.
 import type { NotificationItem } from '@/services/contracts/notifications';
 
 export const COMMUTER_NOTIFICATIONS: NotificationItem[] = [

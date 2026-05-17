@@ -1,3 +1,4 @@
+// Preferences Screen - displays user preference options and related controls.
 import Feather from "@expo/vector-icons/Feather";
 import { useState } from "react";
 import {

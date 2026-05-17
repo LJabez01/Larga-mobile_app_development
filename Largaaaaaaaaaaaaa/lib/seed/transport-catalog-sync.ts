@@ -1,3 +1,4 @@
+// Transport Seed Sync Helpers - resolve env config and serialize the coded transport catalog.
 import fs from 'node:fs';
 import path from 'node:path';
 

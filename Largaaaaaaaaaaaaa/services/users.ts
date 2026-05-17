@@ -1,3 +1,4 @@
+// Legacy User Helpers - preserves the older Firestore user document utilities.
 import type { User } from 'firebase/auth';
 import { doc, getDoc, runTransaction, type Firestore } from 'firebase/firestore';
 import type { AppRole } from '@/lib/domain/auth';

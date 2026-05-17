@@ -1,3 +1,4 @@
+// Auth Service Selector - chooses the active auth adapter for the current app mode.
 import type { AuthService } from '@/services/contracts/auth';
 import { isMockMode } from '@/services/runtime/app-mode';
 

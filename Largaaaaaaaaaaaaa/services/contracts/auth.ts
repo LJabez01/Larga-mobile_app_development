@@ -1,3 +1,4 @@
+// Auth Contracts - defines the shared types and service interface for app authentication.
 import type { AppMode } from '@/services/runtime/app-mode';
 
 export type AppRole = 'commuter' | 'driver' | 'admin';

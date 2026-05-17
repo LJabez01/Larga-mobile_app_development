@@ -1,3 +1,4 @@
+// Commuter Map Screen - renders the route-aware commuter map and overlays.
 import { useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, TextInput, Text, Image, FlatList, Keyboard, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

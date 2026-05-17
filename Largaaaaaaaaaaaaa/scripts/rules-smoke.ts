@@ -1,3 +1,4 @@
+// Rules Smoke Script - validates the Firestore rules with emulator-backed scenarios.
 import assert from 'node:assert/strict';
 
 import { deleteApp as deleteAdminApp, getApp, getApps, initializeApp } from 'firebase-admin/app';

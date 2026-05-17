@@ -1,3 +1,4 @@
+// App Session Provider - exposes the active auth session and auth actions.
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { authService } from '@/services/auth/index';
@@ -21,15 +22,18 @@ interface AppSessionContextValue {
 
 const AppSessionContext = createContext<AppSessionContextValue | undefined>(undefined);
 
+// Default Route Helper - maps a signed-in role to its landing screen.
 export function getDefaultAppPath(role: AppRole): '/commuter' | '/driver' {
   return role === 'driver' ? '/driver' : '/commuter';
 }
 
 export function AppSessionProvider({ children }: { children: ReactNode }) {
+  // Session State - stores the current auth session and loading status for the app.
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [session, setSession] = useState<AppSession | null>(null);
   const mode = getAppMode();
 
+  // Session Sync - hydrates the initial auth state and listens for future auth changes.
   useEffect(() => {
     let mounted = true;
 
@@ -67,6 +71,7 @@ export function AppSessionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Context Value - exposes the current session state together with auth actions.
   const value = useMemo<AppSessionContextValue>(
     () => ({
       mode,
@@ -91,6 +96,7 @@ export function AppSessionProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAppSession() {
+  // Context Guard - ensures session consumers are used inside the provider tree.
   const context = useContext(AppSessionContext);
 
   if (!context) {

@@ -1,3 +1,4 @@
+// Transport Catalog - defines the coded source of truth for terminals and route records.
 import type { RouteRecord, TerminalOption } from '@/lib/domain/transport';
 
 interface BaseRouteSeed {

@@ -1,3 +1,4 @@
+// Transport Domain Helpers - resolves route, terminal, and vehicle transport logic.
 export type VehicleType = 'bus' | 'jeep';
 
 export type RouteCoordinate = [number, number];

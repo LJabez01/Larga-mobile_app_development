@@ -1,3 +1,4 @@
+// Login Screen - handles sign-in and mock-mode demo entry.
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,6 +23,7 @@ const BG_LIGHT = '#F0FDF4';
 const TEXT = '#111827';
 const ERROR_COLOR = '#EF4444';
 
+// Auth Error Helper - converts thrown auth errors into user-friendly text.
 function getFriendlyAuthError(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -31,6 +33,7 @@ function getFriendlyAuthError(error: unknown) {
 }
 
 export default function LoginScreen() {
+  // Form State - stores the current field values, validation flags, and submit state.
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -41,6 +44,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { isMockMode, session, signIn, startDemoSession, status } = useAppSession();
 
+  // Form Validation - keeps the email and password validation result in sync with input changes.
   const validation = useMemo(
     () => validateLoginForm({ email, password }),
     [email, password]
@@ -50,6 +54,7 @@ export default function LoginScreen() {
     return <Redirect href={getDefaultAppPath(session.role)} />;
   }
 
+  // Login Logic - validates the form and starts the real sign-in flow.
   const handleLogin = async () => {
     setSubmitted(true);
 
@@ -70,6 +75,7 @@ export default function LoginScreen() {
     }
   };
 
+  // Demo Session Logic - starts a role-specific mock session for fast UI testing.
   const handleStartDemo = async (role: 'commuter' | 'driver') => {
     setAuthError(null);
 
@@ -81,6 +87,7 @@ export default function LoginScreen() {
     }
   };
 
+  // Screen Layout - renders the login form, mock helpers, and auth actions.
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />

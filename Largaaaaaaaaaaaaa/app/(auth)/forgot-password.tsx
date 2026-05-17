@@ -1,3 +1,4 @@
+// Forgot Password Screen - lets users request a password reset email.
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,

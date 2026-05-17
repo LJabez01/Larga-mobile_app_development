@@ -1,3 +1,4 @@
+// Notifications Screen - renders the role-aware notification inbox.
 import { useMemo, useState } from 'react';
 import {
   View,

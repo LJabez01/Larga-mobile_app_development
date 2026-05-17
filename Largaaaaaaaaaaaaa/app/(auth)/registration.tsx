@@ -1,3 +1,4 @@
+// Registration Screen - creates commuter accounts for self-service signup.
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,

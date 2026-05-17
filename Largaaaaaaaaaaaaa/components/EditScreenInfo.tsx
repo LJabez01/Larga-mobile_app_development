@@ -1,3 +1,4 @@
+// Edit Screen Info - renders the Expo sample info block for reference screens.
 import React from 'react';
 import { StyleSheet } from 'react-native';
 

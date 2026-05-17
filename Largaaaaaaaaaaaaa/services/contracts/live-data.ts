@@ -1,3 +1,4 @@
+// Live Data Contracts - defines the shared types and service interface for trip state.
 import type { NotificationItem } from '@/services/contracts/notifications';
 import type { DriverSelectionState, RouteRecord, TerminalOption, VehicleType } from '@/lib/domain/transport';
 

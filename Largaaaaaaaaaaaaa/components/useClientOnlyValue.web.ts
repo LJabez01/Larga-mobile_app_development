@@ -1,3 +1,4 @@
+// Client-Only Value Web Helper - delays web-only values until the client has mounted.
 import React from 'react';
 
 // `useEffect` is not invoked during server rendering, meaning

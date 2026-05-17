@@ -1,3 +1,4 @@
+// Shared Map Screen - renders the common map shell used by app-specific map views.
 import { useState, useRef } from 'react';
 import { View, TouchableOpacity, TextInput, Text, Image, FlatList, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

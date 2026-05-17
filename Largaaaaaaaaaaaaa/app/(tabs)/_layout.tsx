@@ -1,3 +1,4 @@
+// Tabs Layout - registers the tab-group routes inside the stack container.
 import React from 'react';
 import { Stack } from 'expo-router';
 

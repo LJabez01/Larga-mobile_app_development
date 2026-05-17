@@ -1,3 +1,4 @@
+// Secondary Tab Screen - renders the sample secondary route view.
 import { Text, View } from 'react-native';
 import { styles } from '../../components/styles/two.styles';
 

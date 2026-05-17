@@ -1,3 +1,4 @@
+// Themed Components - wrap core React Native views with light and dark color support.
 /**
  * Learn more about Light and Dark modes:
  * https://docs.expo.io/guides/color-schemes/

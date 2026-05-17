@@ -1,3 +1,4 @@
+// Mock Auth Service - implements in-memory auth flows for mock mode.
 import { DEMO_USERS } from '@/services/fixtures/users';
 import type {
   AppSession,

@@ -1,3 +1,4 @@
+// Mock Live Data Service - exposes the mock store through the shared live-data interface.
 import type { LiveDataService } from '@/services/contracts/live-data';
 import { mockLiveDataStore } from '@/services/live-data/mock-store';
 

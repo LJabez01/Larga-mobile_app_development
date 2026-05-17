@@ -1,3 +1,4 @@
+// Live Data Provider - exposes shared trip, route, and vehicle state.
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { createEmptyDriverSelection } from '@/lib/domain/transport';
@@ -29,8 +30,10 @@ const fallbackSnapshot: LiveDataSnapshot = {
 const LiveDataContext = createContext<LiveDataContextValue | undefined>(undefined);
 
 export function LiveDataProvider({ children }: { children: ReactNode }) {
+  // Live Snapshot State - stores the current live-data view used by the app screens.
   const [snapshot, setSnapshot] = useState<LiveDataSnapshot>(fallbackSnapshot);
 
+  // Live Data Sync - hydrates the initial snapshot and subscribes to future updates.
   useEffect(() => {
     let mounted = true;
 
@@ -52,6 +55,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Context Value - exposes the current snapshot together with live-data actions.
   const value = useMemo<LiveDataContextValue>(
     () => ({
       snapshot,
@@ -72,6 +76,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
 }
 
 export function useLiveData() {
+  // Context Guard - ensures live-data consumers are used inside the provider tree.
   const context = useContext(LiveDataContext);
 
   if (!context) {

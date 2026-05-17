@@ -1,3 +1,4 @@
+// Seed Validation Helpers - checks coded terminal and route seed data before syncing.
 import type { RouteRecord, TerminalRecord } from '@/lib/domain/routes';
 
 export function validateSeedData(input: {

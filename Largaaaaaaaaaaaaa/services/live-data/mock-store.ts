@@ -1,3 +1,4 @@
+// Mock Live Data Store - keeps in-memory trip, route, and vehicle state for mock mode.
 import { DRIVER_NOTIFICATIONS, COMMUTER_NOTIFICATIONS } from '@/services/fixtures/notifications';
 import { ROUTE_FIXTURES, TERMINAL_FIXTURES } from '@/services/fixtures/routes';
 import { VEHICLE_FIXTURES } from '@/services/fixtures/vehicles';
@@ -6,6 +7,7 @@ import type { ActiveTripState, LiveDataSnapshot, PublishDriverLocationInput, Veh
 
 const listeners = new Set<(snapshot: LiveDataSnapshot) => void>();
 
+// Default Snapshot Builder - creates the initial mock route, vehicle, and notification state.
 function buildDefaultSnapshot(): LiveDataSnapshot {
   return {
     terminals: TERMINAL_FIXTURES.map((terminal) => ({ ...terminal })),
@@ -22,6 +24,7 @@ function buildDefaultSnapshot(): LiveDataSnapshot {
 
 let currentSnapshot = buildDefaultSnapshot();
 
+// Snapshot Broadcast - sends the latest mock snapshot to all live-data subscribers.
 function notify() {
   listeners.forEach((listener) => listener(currentSnapshot));
 }
@@ -32,6 +35,7 @@ function updateSnapshot(nextSnapshot: LiveDataSnapshot): LiveDataSnapshot {
   return currentSnapshot;
 }
 
+// Vehicle Fixture Helper - clones the route-specific mock vehicle before mutations.
 function cloneVehicle(routeId: string): VehicleMarker {
   const vehicle = VEHICLE_FIXTURES[routeId];
 
@@ -45,6 +49,7 @@ function cloneVehicle(routeId: string): VehicleMarker {
   };
 }
 
+// Mock Live Data Adapter - exposes route selection, trip control, and reset helpers.
 export const mockLiveDataStore = {
   getSnapshot(): LiveDataSnapshot {
     return currentSnapshot;

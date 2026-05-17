@@ -1,3 +1,4 @@
+// Firebase Auth Service - implements the real auth adapter for firebase mode.
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -38,6 +39,7 @@ let currentSnapshot: AuthSnapshot = {
   session: null,
 };
 
+// Snapshot Broadcast - sends the latest auth snapshot to all active listeners.
 function notify() {
   listeners.forEach((listener) => listener(currentSnapshot));
 }
@@ -48,10 +50,12 @@ function updateSnapshot(snapshot: AuthSnapshot): AuthSnapshot {
   return currentSnapshot;
 }
 
+// Role Guard - narrows unknown Firestore role values to supported app roles.
 function isAppRole(value: unknown): value is AppRole {
   return value === 'commuter' || value === 'driver' || value === 'admin';
 }
 
+// Auth Subscription - starts the one-time Firebase auth observer for session hydration.
 function ensureSubscribed() {
   if (subscribed) {
     return;
@@ -84,6 +88,7 @@ function ensureSubscribed() {
   });
 }
 
+// Session Mapper - converts a Firebase user document into the shared app session shape.
 function toSession(userDoc: FirebaseUserDocument): AppSession {
   return {
     userId: userDoc.uid,
@@ -94,6 +99,7 @@ function toSession(userDoc: FirebaseUserDocument): AppSession {
   };
 }
 
+// Display Name Helper - chooses the best available name for a Firebase user profile.
 function resolveDisplayName(user: Pick<User, 'email' | 'displayName'>, preferredName?: string): string {
   const candidate = preferredName?.trim() || user.displayName?.trim();
 
@@ -114,6 +120,7 @@ function resolveDisplayName(user: Pick<User, 'email' | 'displayName'>, preferred
     .join(' ');
 }
 
+// User Document Sync - reads or creates the Firestore user profile for the signed-in account.
 async function ensureUserDocument(user: Pick<User, 'uid' | 'email' | 'displayName'>, preferredName?: string) {
   if (!user.email) {
     throw new Error('Signed-in user is missing an email address.');
@@ -161,6 +168,7 @@ async function ensureUserDocument(user: Pick<User, 'uid' | 'email' | 'displayNam
   return userDoc;
 }
 
+// Firebase Auth Adapter - exposes the shared auth contract using real Firebase behavior.
 export const firebaseAuthService: AuthService = {
   async getSession() {
     ensureSubscribed();

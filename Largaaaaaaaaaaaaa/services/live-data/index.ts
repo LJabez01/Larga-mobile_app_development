@@ -1,3 +1,4 @@
+// Live Data Service Selector - chooses the active live-data adapter for the current app mode.
 import type { LiveDataService } from '@/services/contracts/live-data';
 import { isMockMode } from '@/services/runtime/app-mode';
 

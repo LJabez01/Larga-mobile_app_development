@@ -1,3 +1,4 @@
+// About Screen - presents the app background and general information.
 import Feather from "@expo/vector-icons/Feather";
 import {
     ScrollView,

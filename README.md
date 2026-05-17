@@ -143,6 +143,11 @@ EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 EXPO_PUBLIC_FIREBASE_APP_ID=...
 ```
 
+App mode is now determined by version-controlled runtime defaults instead of relying on each teammate's private `.env.local`:
+- development builds default to `mock`
+- production builds default to `firebase`
+- `EXPO_PUBLIC_APP_MODE` is now only an optional override when someone intentionally needs a different mode
+
 ## Current priorities
 1. Finalize route and terminal data model.
 2. Finalize Firestore collection and rule strategy.

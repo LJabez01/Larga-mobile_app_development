@@ -1,3 +1,4 @@
+// Ride Info Panel - shows the selected ride details beneath the map.
 import React from 'react';
 import { View, TouchableOpacity, Text, Modal, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

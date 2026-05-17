@@ -1,3 +1,4 @@
+// Driver Map Screen - renders the driver map, terminal selection, and trip controls.
 import { useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, TextInput, Text, FlatList, Keyboard, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,6 +43,7 @@ function fuzzyMatch(query: string, target: string): boolean {
 }
 
 export default function DriverMapScreen() {
+  // Screen State - stores driver drawer, picker, search, and action UI state.
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [terminalPickerTarget, setTerminalPickerTarget] = useState<TerminalPickerTarget>(null);
   const [searchText, setSearchText] = useState('');
@@ -53,6 +55,7 @@ export default function DriverMapScreen() {
   const { snapshot, selectDriverTerminals, startTrip, endTrip } = useLiveData();
   const { isMockMode } = useAppSession();
 
+  // Derived Route State - resolves the active route, vehicle marker, and picker options for the UI.
   const selectedOriginLabel = snapshot.terminals.find(
     (terminal) => terminal.id === snapshot.driverSelection.originTerminalId,
   )?.label ?? null;
@@ -105,6 +108,7 @@ export default function DriverMapScreen() {
     [activeRoute],
   );
 
+  // Terminal Picker Actions - manage opening, closing, and applying terminal selections.
   function openTerminalPicker(target: Exclude<TerminalPickerTarget, null>) {
     if (snapshot.activeTrip) {
       return;
@@ -135,6 +139,7 @@ export default function DriverMapScreen() {
     closeTerminalPicker();
   }
 
+  // Trip Actions - start or end the active driver trip through the live-data service.
   async function handleStartTrip() {
     setActionError(null);
     setIsTripSubmitting(true);
@@ -165,6 +170,7 @@ export default function DriverMapScreen() {
     return <MapFallback />;
   }
 
+  // Screen Layout - renders the map, terminal picker overlay, and driver trip controls.
   return (
     <View style={styles.container}>
       {terminalPickerTarget && (

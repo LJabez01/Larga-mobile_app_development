@@ -1,3 +1,4 @@
+// Firebase Setup - initializes the shared Firebase app, auth, and Firestore instances.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth, initializeAuth, type Persistence } from 'firebase/auth';

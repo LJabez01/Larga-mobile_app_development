@@ -1,3 +1,4 @@
+// Legacy Auth Helpers - preserves the older Firebase auth utility functions.
 import type { AuthError } from 'firebase/auth';
 import {
   createUserWithEmailAndPassword,

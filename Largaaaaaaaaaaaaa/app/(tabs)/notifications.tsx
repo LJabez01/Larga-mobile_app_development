@@ -1,3 +1,4 @@
+// Notifications Tab Screen - mounts the notifications experience.
 import { ActivityIndicator, View } from 'react-native';
 import { Redirect, useRouter } from 'expo-router';
 import NotificationsScreen from '@/components/notifications';

@@ -1,3 +1,4 @@
+// Map Fallback - shows a safe fallback when Mapbox is unavailable.
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 

@@ -1,3 +1,4 @@
+// FAQs Screen - displays the frequently asked questions content.
 import Feather from "@expo/vector-icons/Feather";
 import { useState } from "react";
 import {

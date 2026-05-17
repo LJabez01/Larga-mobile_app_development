@@ -1,3 +1,4 @@
+// User Fixtures - provide mock commuter and driver identities for demo sessions.
 import type { DemoRole } from '@/services/contracts/auth';
 
 export interface DemoUserFixture {

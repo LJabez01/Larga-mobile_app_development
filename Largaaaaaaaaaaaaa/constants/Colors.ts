@@ -1,3 +1,4 @@
+// Color Constants - stores shared theme colors for light and dark modes.
 const tintColorLight = '#2f95dc';
 const tintColorDark = '#fff';
 

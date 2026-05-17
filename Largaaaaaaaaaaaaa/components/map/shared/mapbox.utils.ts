@@ -1,3 +1,4 @@
+// Mapbox Utilities - centralizes shared map constants and helper accessors.
 import type { ImageSourcePropType } from 'react-native';
 
 export type MapboxModule = {

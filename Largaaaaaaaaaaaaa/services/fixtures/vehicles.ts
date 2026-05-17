@@ -1,3 +1,4 @@
+// Vehicle Fixtures - provide mock vehicle markers for route-based demo trips.
 import type { VehicleMarker } from '@/services/contracts/live-data';
 
 export const VEHICLE_FIXTURES: Record<string, VehicleMarker> = {

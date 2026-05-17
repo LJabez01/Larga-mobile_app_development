@@ -1,3 +1,4 @@
+// Firebase Live Data Service - implements Firestore-backed trip and vehicle state.
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   addDoc,
@@ -77,6 +78,7 @@ let currentActiveTrip: ActiveTripState | null = null;
 let currentDriverSelection: DriverSelectionState = createEmptyDriverSelection();
 let currentSnapshot: LiveDataSnapshot = buildSnapshot();
 
+// Snapshot Builder - creates a fresh immutable snapshot for provider consumers.
 function cloneVehicle(vehicle: VehicleMarker): VehicleMarker {
   return {
     ...vehicle,
@@ -104,6 +106,7 @@ function buildSnapshot(): LiveDataSnapshot {
   };
 }
 
+// Snapshot Sync - keeps the shared live-data snapshot and subscribers up to date.
 function notify() {
   listeners.forEach((listener) => listener(currentSnapshot));
 }
@@ -139,6 +142,7 @@ function updateSnapshot() {
   return currentSnapshot;
 }
 
+// Operational Reset - clears route, trip, and vehicle state when auth context changes.
 function resetOperationalState() {
   currentTerminals = [];
   currentRoutes = [];
@@ -153,6 +157,7 @@ function clearFirestoreSubscriptions() {
   firestoreUnsubscribers = [];
 }
 
+// Firestore Parsing Helpers - validate terminal, route, trip, and vehicle records from Firestore.
 function isVehicleType(value: unknown): value is VehicleType {
   return value === 'bus' || value === 'jeep';
 }
@@ -280,6 +285,7 @@ function parseVehicleLocation(data: FirestoreVehicleLocationRecord): VehicleMark
   );
 }
 
+// Firestore Subscriptions - binds the active auth user to the live Firestore listeners.
 function bindFirestoreListeners(uid: string | null) {
   clearFirestoreSubscriptions();
   currentUserId = uid;
@@ -325,6 +331,7 @@ function bindFirestoreListeners(uid: string | null) {
   ];
 }
 
+// Auth Watcher - initializes the one-time auth observer used by live data.
 function ensureAuthWatcher() {
   if (authWatcherReady) {
     return;
@@ -337,6 +344,7 @@ function ensureAuthWatcher() {
   });
 }
 
+// Access Guards - enforce signed-in and role checks before mutating live trip state.
 async function requireSignedInUser() {
   const user = auth.currentUser;
 
@@ -361,6 +369,7 @@ async function requireDriverRole(uid: string) {
   }
 }
 
+// Route Resolution Guard - ensures trip actions always use a supported stored route.
 function getResolvedRouteOrThrow() {
   const route = resolveRouteForTerminals(
     currentRoutes,
@@ -375,6 +384,7 @@ function getResolvedRouteOrThrow() {
   return route;
 }
 
+// Trip Persistence Helpers - write trip events and initial vehicle state to Firestore.
 async function appendTripEvent(
   driverId: string,
   routeId: string,
@@ -415,6 +425,7 @@ async function writeInitialVehicleLocation(driverId: string, route: RouteRecord,
   ];
 }
 
+// Firebase Live Data Adapter - exposes the shared live-data contract using Firestore state.
 export const firebaseLiveDataService: LiveDataService = {
   async getSnapshot() {
     ensureAuthWatcher();

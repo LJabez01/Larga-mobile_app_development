@@ -1,3 +1,4 @@
+// Route Domain Helpers - parses stored route records into UI-safe route data.
 export type VehicleType = 'jeepney' | 'bus';
 
 export interface TerminalRecord {

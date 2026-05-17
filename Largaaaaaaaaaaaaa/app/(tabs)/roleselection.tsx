@@ -1,3 +1,4 @@
+// Role Selection Screen - offers mock-mode role switching for testers.
 import { Redirect, useRouter } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

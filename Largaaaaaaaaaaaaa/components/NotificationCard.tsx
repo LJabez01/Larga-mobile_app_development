@@ -1,3 +1,4 @@
+// Notification Card - renders a single notification row with swipe and action states.
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRef } from 'react';

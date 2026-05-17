@@ -1,3 +1,4 @@
+// User Domain Helpers - validates the Firestore user profile shape.
 import { isAppRole, type AppRole } from '@/lib/domain/auth';
 
 export interface AppUserDocument {

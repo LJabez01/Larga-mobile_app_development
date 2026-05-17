@@ -1,3 +1,4 @@
+// Not Found Screen - renders the fallback route for unknown paths.
 import { Link, Stack } from 'expo-router';
 import { StyleSheet } from 'react-native';
 

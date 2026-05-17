@@ -1,3 +1,4 @@
+// External Link Helper - opens external URLs with the app-friendly link wrapper.
 import { Link } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React from 'react';

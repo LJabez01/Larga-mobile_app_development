@@ -1,3 +1,4 @@
+// Image Cropper - lets the user adjust an image selection before saving it.
 import React, { useRef } from 'react';
 import {
   View,
