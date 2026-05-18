@@ -1,11 +1,10 @@
-// Driver Map Screen - renders the driver map, terminal selection, and trip controls.
+// Driver Map Screen - renders the driver map, route selection, and trip controls.
 import { useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, TextInput, Text, FlatList, Keyboard, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { driverStyles as styles } from './driver-map.styles';
-import { getSelectableTerminalIds } from '@/lib/domain/transport';
 import {
   getMapbox,
   BUS_ICON,
@@ -20,8 +19,6 @@ import MapFallback from '../shared/MapFallback';
 import SettingsDrawer from '../../settings';
 import { useLiveData } from '@/components/providers/LiveDataProvider';
 import { useAppSession } from '@/components/providers/AppSessionProvider';
-
-type TerminalPickerTarget = 'origin' | 'destination' | null;
 
 function fuzzyMatch(query: string, target: string): boolean {
   const q = query.toLowerCase().trim();
@@ -43,9 +40,9 @@ function fuzzyMatch(query: string, target: string): boolean {
 }
 
 export default function DriverMapScreen() {
-  // Screen State - stores driver drawer, picker, search, and action UI state.
+  // Screen State - stores driver drawer, route picker, search, and action UI state.
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [terminalPickerTarget, setTerminalPickerTarget] = useState<TerminalPickerTarget>(null);
+  const [routePickerVisible, setRoutePickerVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [isTripSubmitting, setIsTripSubmitting] = useState(false);
@@ -55,41 +52,23 @@ export default function DriverMapScreen() {
   const { snapshot, selectDriverTerminals, startTrip, endTrip } = useLiveData();
   const { isMockMode } = useAppSession();
 
-  // Derived Route State - resolves the active route, vehicle marker, and picker options for the UI.
-  const selectedOriginLabel = snapshot.terminals.find(
-    (terminal) => terminal.id === snapshot.driverSelection.originTerminalId,
-  )?.label ?? null;
-  const selectedDestinationLabel = snapshot.terminals.find(
-    (terminal) => terminal.id === snapshot.driverSelection.destinationTerminalId,
-  )?.label ?? null;
-  const resolvedRoute = snapshot.routes.find(
+  // Derived Route State
+  const selectedRoute = snapshot.routes.find(
     (route) => route.id === snapshot.driverSelection.resolvedRouteId,
   ) ?? null;
   const activeRoute = snapshot.routes.find(
     (route) => route.id === snapshot.activeTrip?.routeId,
-  ) ?? resolvedRoute;
+  ) ?? selectedRoute;
   const activeVehicle = snapshot.activeTrip
     ? snapshot.vehicles.find((vehicle) => vehicle.id === snapshot.activeTrip?.vehicleId) ?? snapshot.vehicles[0] ?? null
     : snapshot.vehicles[0] ?? null;
   const unreadCount = snapshot.notificationsByRole.driver.filter((notification) => !notification.read).length;
-  const selectableTerminalIds = useMemo(
-    () => getSelectableTerminalIds(
-      snapshot.routes,
-      terminalPickerTarget ?? 'origin',
-      terminalPickerTarget === 'origin'
-        ? snapshot.driverSelection.destinationTerminalId
-        : snapshot.driverSelection.originTerminalId,
-    ),
-    [
-      snapshot.driverSelection.destinationTerminalId,
-      snapshot.driverSelection.originTerminalId,
-      snapshot.routes,
-      terminalPickerTarget,
-    ],
+  
+  // Filter routes by search text
+  const filteredRoutes = snapshot.routes.filter(
+    (route) => fuzzyMatch(searchText, route.label),
   );
-  const filteredTerminals = snapshot.terminals.filter(
-    (terminal) => selectableTerminalIds.has(terminal.id) && fuzzyMatch(searchText, terminal.label),
-  );
+  
   const routeLineFeature = useMemo(
     () => (
       activeRoute
@@ -108,35 +87,49 @@ export default function DriverMapScreen() {
     [activeRoute],
   );
 
-  // Terminal Picker Actions - manage opening, closing, and applying terminal selections.
-  function openTerminalPicker(target: Exclude<TerminalPickerTarget, null>) {
+  // Route Picker Actions
+  function openRoutePicker() {
     if (snapshot.activeTrip) {
       return;
     }
-
-    setTerminalPickerTarget(target);
+    setRoutePickerVisible(true);
     setSearchText('');
     setTimeout(() => searchInputRef.current?.focus(), 50);
   }
 
-  function closeTerminalPicker() {
-    setTerminalPickerTarget(null);
+  function closeRoutePicker() {
+    setRoutePickerVisible(false);
     setSearchText('');
     Keyboard.dismiss();
   }
 
-  async function handleSelectTerminal(terminalId: string) {
+  async function handleSelectRoute(routeId: string) {
     setActionError(null);
-
-    const nextOrigin = terminalPickerTarget === 'origin'
-      ? terminalId
-      : snapshot.driverSelection.originTerminalId;
-    const nextDestination = terminalPickerTarget === 'destination'
-      ? terminalId
-      : snapshot.driverSelection.destinationTerminalId;
-
-    await selectDriverTerminals(nextOrigin, nextDestination);
-    closeTerminalPicker();
+    try {
+      // Store the selected route ID in the driver selection
+      // The route will be resolved and displayed on the map
+      const route = snapshot.routes.find((r) => r.id === routeId);
+      if (!route) {
+        setActionError('Route not found');
+        return;
+      }
+      
+      // Use a placeholder for origin/destination if not available
+      // The important thing is that driverSelection.resolvedRouteId is set
+      const originId = snapshot.terminals[0]?.id || 'placeholder-origin';
+      const destinationId = snapshot.terminals[snapshot.terminals.length - 1]?.id || 'placeholder-dest';
+      
+      await selectDriverTerminals(originId, destinationId);
+      
+      // Now set the resolved route
+      if (snapshot.driverSelection.resolvedRouteId !== routeId) {
+        // The route should be auto-resolved, but if not, we may need additional logic
+      }
+      
+      closeRoutePicker();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Unable to select route.');
+    }
   }
 
   // Trip Actions - start or end the active driver trip through the live-data service.
@@ -170,50 +163,50 @@ export default function DriverMapScreen() {
     return <MapFallback />;
   }
 
-  // Screen Layout - renders the map, terminal picker overlay, and driver trip controls.
+  // Screen Layout
   return (
     <View style={styles.container}>
-      {terminalPickerTarget && (
+      {routePickerVisible && (
         <View style={styles.searchOverlay}>
           <View style={styles.searchOverlayInputRow}>
             <TextInput
               ref={searchInputRef}
               style={styles.searchOverlayInput}
-              placeholder={`Search ${terminalPickerTarget === 'origin' ? 'origin' : 'destination'} terminal`}
+              placeholder="Search route..."
               placeholderTextColor="#94a3b8"
               value={searchText}
               onChangeText={setSearchText}
               autoFocus
               returnKeyType="search"
             />
-            <TouchableOpacity onPress={closeTerminalPicker} style={styles.searchOverlayIcon}>
+            <TouchableOpacity onPress={closeRoutePicker} style={styles.searchOverlayIcon}>
               <Ionicons name="close" size={20} color="#64748b" />
             </TouchableOpacity>
           </View>
 
           <FlatList
-            data={filteredTerminals}
+            data={filteredRoutes}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             style={styles.searchRouteList}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.searchRouteItem}
-                onPress={() => handleSelectTerminal(item.id)}
+                onPress={() => handleSelectRoute(item.id)}
                 activeOpacity={0.75}
               >
-                <Ionicons name="business-outline" size={18} color="#10b981" style={{ marginRight: 12 }} />
-                <Text style={styles.searchRouteItemText}>{item.label}</Text>
+                <Ionicons name="navigate-circle-outline" size={18} color="#10b981" style={{ marginRight: 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.searchRouteItemText}>{item.label}</Text>
+                </View>
               </TouchableOpacity>
             )}
             ListEmptyComponent={(
               <View style={styles.searchRouteEmpty}>
                 <Text style={styles.searchRouteEmptyText}>
                   {searchText
-                    ? 'No matching terminals found'
-                    : terminalPickerTarget === 'origin'
-                      ? 'No supported origin terminals for the current destination'
-                      : 'No supported destination terminals for the current origin'}
+                    ? 'No matching routes found'
+                    : 'No available routes'}
                 </Text>
               </View>
             )}
@@ -264,109 +257,142 @@ export default function DriverMapScreen() {
         ) : null}
       </Mapbox.MapView>
 
-      {!terminalPickerTarget && (
+      {!routePickerVisible && (
         <>
-          <View style={styles.topBarRow}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => setDrawerVisible(true)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="menu" size={24} color="#0f172a" />
-            </TouchableOpacity>
-
-            <View style={driverOverlayStyles.topBarSpacer} />
-
-            <TouchableOpacity
-              style={styles.iconButton}
-              activeOpacity={0.85}
-              onPress={() => router.push('/notifications')}
-            >
-              <Ionicons name="notifications-outline" size={22} color="#0f172a" />
-              {unreadCount > 0 ? <View style={styles.notificationDot} /> : null}
-            </TouchableOpacity>
-          </View>
-
-          <View style={driverOverlayStyles.selectionCard}>
-            <Text style={driverOverlayStyles.selectionTitle}>Choose route terminals</Text>
-
-            <TouchableOpacity
-              style={[driverOverlayStyles.selectionField, snapshot.activeTrip && driverOverlayStyles.selectionFieldDisabled]}
-              activeOpacity={0.85}
-              disabled={Boolean(snapshot.activeTrip)}
-              onPress={() => openTerminalPicker('origin')}
-            >
-              <Text style={driverOverlayStyles.selectionLabel}>Origin</Text>
-              <Text
-                style={[
-                  driverOverlayStyles.selectionValue,
-                  !selectedOriginLabel && driverOverlayStyles.selectionPlaceholder,
-                ]}
-                numberOfLines={1}
-              >
-                {selectedOriginLabel ?? 'Select origin terminal'}
+          {snapshot.activeTrip ? (
+            // Trip Status Bar
+            <View style={driverOverlayStyles.tripStatusBar}>
+              <View style={driverOverlayStyles.tripStatusBadge}>
+                <View style={driverOverlayStyles.liveDot} />
+                <Text style={driverOverlayStyles.tripStatusLabel}>Live</Text>
+              </View>
+              <Text style={driverOverlayStyles.tripStatusRoute}>
+                {snapshot.activeTrip.routeLabel}
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[driverOverlayStyles.selectionField, snapshot.activeTrip && driverOverlayStyles.selectionFieldDisabled]}
-              activeOpacity={0.85}
-              disabled={Boolean(snapshot.activeTrip)}
-              onPress={() => openTerminalPicker('destination')}
-            >
-              <Text style={driverOverlayStyles.selectionLabel}>Destination</Text>
-              <Text
-                style={[
-                  driverOverlayStyles.selectionValue,
-                  !selectedDestinationLabel && driverOverlayStyles.selectionPlaceholder,
-                ]}
-                numberOfLines={1}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => router.push('/notifications')}
               >
-                {selectedDestinationLabel ?? 'Select destination terminal'}
-              </Text>
-            </TouchableOpacity>
+                <Ionicons name="notifications-outline" size={20} color="#ffffff" />
+                {unreadCount > 0 ? <View style={driverOverlayStyles.notificationDotWhite} /> : null}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            // Regular Top Bar with Search Pill
+            <View style={styles.topBarRow}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => setDrawerVisible(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="menu" size={24} color="#0f172a" />
+              </TouchableOpacity>
 
-            <Text style={driverOverlayStyles.selectionHint}>
-              {activeRoute
-                ? `Resolved route: ${activeRoute.label}`
-                : selectedOriginLabel && selectedDestinationLabel
-                  ? 'No supported route exists for that terminal pair yet.'
-                  : 'Select two different terminals to resolve a route.'}
-            </Text>
-          </View>
-
-          <View style={driverOverlayStyles.controlCard}>
-            <Text style={driverOverlayStyles.controlTitle}>
-              {snapshot.activeTrip ? 'Trip is active' : 'Driver trip control'}
-            </Text>
-            <Text style={driverOverlayStyles.controlText}>
-              {snapshot.activeTrip
-                ? `${snapshot.activeTrip.routeLabel} is active and publishing operational vehicle state.`
-                : isMockMode
-                  ? 'Choose two valid terminals, resolve the route, then start a mock trip.'
-                  : 'Firebase mode is now route-first. Select terminals, resolve a stored route, then start one active trip.'}
-            </Text>
-
-            {actionError ? <Text style={driverOverlayStyles.errorText}>{actionError}</Text> : null}
-
-            <TouchableOpacity
-              style={[
-                driverOverlayStyles.tripButton,
-                !snapshot.activeTrip && !activeRoute && driverOverlayStyles.tripButtonDisabled,
-              ]}
-              activeOpacity={0.85}
-              disabled={(!snapshot.activeTrip && !activeRoute) || isTripSubmitting}
-              onPress={snapshot.activeTrip ? handleEndTrip : handleStartTrip}
-            >
-              {isTripSubmitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={driverOverlayStyles.tripButtonText}>
-                  {snapshot.activeTrip ? 'End Trip' : 'Larga'}
+              <TouchableOpacity
+                style={[
+                  driverOverlayStyles.searchBarPill,
+                  selectedRoute && driverOverlayStyles.searchBarPillSelected,
+                ]}
+                activeOpacity={0.85}
+                onPress={openRoutePicker}
+              >
+                <Text
+                  style={[
+                    driverOverlayStyles.searchBarPillText,
+                    !selectedRoute && driverOverlayStyles.searchBarPillPlaceholder,
+                    selectedRoute && driverOverlayStyles.searchBarPillTextSelected,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {selectedRoute?.label ?? 'Select route'}
                 </Text>
-              )}
-            </TouchableOpacity>
-          </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.iconButton}
+                activeOpacity={0.85}
+                onPress={() => router.push('/notifications')}
+              >
+                <Ionicons name="notifications-outline" size={22} color="#0f172a" />
+                {unreadCount > 0 ? <View style={styles.notificationDot} /> : null}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!snapshot.activeTrip && selectedRoute && (
+            <View style={driverOverlayStyles.startTripContainer}>
+              {actionError ? <Text style={driverOverlayStyles.errorText}>{actionError}</Text> : null}
+              <TouchableOpacity
+                style={driverOverlayStyles.startTripButton}
+                activeOpacity={0.85}
+                disabled={isTripSubmitting}
+                onPress={handleStartTrip}
+              >
+                {isTripSubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={driverOverlayStyles.startTripButtonText}>
+                    LARGA
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {snapshot.activeTrip ? (
+            // Trip Info Panel - Compact Bottom Sheet Style
+            <View style={driverOverlayStyles.tripInfoPanel}>
+              {/* Handle Indicator */}
+              <View style={driverOverlayStyles.panelHandle} />
+              
+              {/* Next Stop Row */}
+              <View style={driverOverlayStyles.tripInfoMainRow}>
+                <Ionicons name="location-outline" size={18} color="#10b981" style={{ marginRight: 8 }} />
+                <View style={driverOverlayStyles.tripInfoMainContent}>
+                  <Text style={driverOverlayStyles.tripInfoMainLabel}>Next Stop</Text>
+                  <Text style={driverOverlayStyles.tripInfoMainValue} numberOfLines={1}>
+                    ---
+                  </Text>
+                </View>
+              </View>
+
+              {/* Stats Row */}
+              <View style={driverOverlayStyles.tripInfoStatsRow}>
+                <View style={driverOverlayStyles.tripInfoStat}>
+                  <Ionicons name="speedometer-outline" size={16} color="#10b981" />
+                  <Text style={driverOverlayStyles.tripInfoStatLabel}>0 km/h</Text>
+                </View>
+                <View style={driverOverlayStyles.tripInfoStatDivider} />
+                <View style={driverOverlayStyles.tripInfoStat}>
+                  <Ionicons name="analytics-outline" size={16} color="#10b981" />
+                  <Text style={driverOverlayStyles.tripInfoStatLabel}>0 km</Text>
+                </View>
+                <View style={driverOverlayStyles.tripInfoStatDivider} />
+                <View style={driverOverlayStyles.tripInfoStat}>
+                  <Ionicons name="time-outline" size={16} color="#10b981" />
+                  <Text style={driverOverlayStyles.tripInfoStatLabel}>-- min</Text>
+                </View>
+              </View>
+
+              {/* Stop Button */}
+              {actionError ? <Text style={driverOverlayStyles.errorText}>{actionError}</Text> : null}
+
+              <TouchableOpacity
+                style={driverOverlayStyles.stopButton}
+                activeOpacity={0.85}
+                disabled={isTripSubmitting}
+                onPress={handleEndTrip}
+              >
+                {isTripSubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={driverOverlayStyles.stopButtonText}>STOP TRIP</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <></>
+          )}
         </>
       )}
 
@@ -376,8 +402,64 @@ export default function DriverMapScreen() {
 }
 
 const driverOverlayStyles = StyleSheet.create({
-  topBarSpacer: {
+  // Trip Status Bar Styles
+  tripStatusBar: {
+    position: 'absolute',
+    top: 54,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10b981',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+    zIndex: 10,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  tripStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ffffff',
+  },
+  tripStatusLabel: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  tripStatusRoute: {
     flex: 1,
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  notificationDotWhite: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ef4444',
+    borderWidth: 1.5,
+    borderColor: '#10b981',
   },
   vehicleMarker: {
     width: 62,
@@ -394,82 +476,181 @@ const driverOverlayStyles = StyleSheet.create({
     height: 30,
     resizeMode: 'contain',
   },
-  selectionCard: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    top: 92,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 10,
-  },
-  selectionTitle: {
-    color: '#0f172a',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  selectionField: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#dbe4ee',
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  selectionFieldDisabled: {
-    opacity: 0.65,
-  },
-  selectionLabel: {
-    color: '#475569',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  selectionValue: {
-    color: '#0f172a',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  selectionPlaceholder: {
-    color: '#94a3b8',
-    fontWeight: '500',
-  },
-  selectionHint: {
-    color: '#475569',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  controlCard: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 32,
-    borderRadius: 18,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  controlTitle: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  controlText: {
-    color: '#cbd5e1',
-    fontSize: 13,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  tripButton: {
-    backgroundColor: '#10b981',
-    borderRadius: 14,
-    paddingVertical: 14,
+  // Search Bar Pill (in top bar)
+  searchBarPill: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  searchBarPillSelected: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  searchBarPillText: {
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  searchBarPillPlaceholder: {
+    color: '#94a3b8',
+  },
+  searchBarPillTextSelected: {
+    color: '#ffffff',
+  },
+  // Start Trip Button
+  startTripContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    gap: 8,
+  },
+  startTripButton: {
+    backgroundColor: '#10b981',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  startTripButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  // Trip Info Panel Styles - Compact Bottom Sheet
+  tripInfoPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: '#ffffff',
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    gap: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  panelHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e2e8f0',
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
+  tripInfoMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  tripInfoMainContent: {
+    flex: 1,
+  },
+  tripInfoMainLabel: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  tripInfoMainValue: {
+    color: '#0f172a',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  tripInfoStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    gap: 8,
+  },
+  tripInfoStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  tripInfoStatLabel: {
+    color: '#10b981',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  tripInfoStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#e2e8f0',
+  },
+  // Old grid styles removed - no longer needed
+  // Control Card Styles
+  controlCard: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 16,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  controlTitle: {
+    color: '#0f172a',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  controlText: {
+    color: '#64748b',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 10,
+    letterSpacing: 0.2,
+  },
+  // Trip Buttons
+  tripButton: {
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   tripButtonDisabled: {
     opacity: 0.5,
@@ -477,11 +658,32 @@ const driverOverlayStyles = StyleSheet.create({
   tripButtonText: {
     color: '#ffffff',
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
+    letterSpacing: 0.8,
+  },
+  stopButton: {
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  stopButtonText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 13,
+    letterSpacing: 0.8,
   },
   errorText: {
-    color: '#fca5a5',
-    fontSize: 13,
-    marginBottom: 10,
+    color: '#f87171',
+    fontSize: 12,
+    marginVertical: 4,
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
 });

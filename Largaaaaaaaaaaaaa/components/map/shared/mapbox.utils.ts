@@ -30,8 +30,8 @@ export const MAP_ZOOM = {
 
 export const MAP_PITCH = 60;
 
-export const BUS_ICON: ImageSourcePropType = require('../../../assets/images/bus-icon.jpg');
-export const JEEP_ICON: ImageSourcePropType = require('../../../assets/images/jeep-icon.jpg');
+export const BUS_ICON: ImageSourcePropType = require('@/assets/images/bus-icon.jpg');
+export const JEEP_ICON: ImageSourcePropType = require('@/assets/images/jeep-icon.jpg');
 
 export function getMapbox(): MapboxModule | null {
   try {
