@@ -18,7 +18,6 @@ import {
 import MapFallback from '../shared/MapFallback';
 import SettingsDrawer from '../../settings';
 import { useLiveData } from '@/components/providers/LiveDataProvider';
-import { useAppSession } from '@/components/providers/AppSessionProvider';
 
 function fuzzyMatch(query: string, target: string): boolean {
   const q = query.toLowerCase().trim();
@@ -50,7 +49,6 @@ export default function DriverMapScreen() {
   const router = useRouter();
   const Mapbox = getMapbox();
   const { snapshot, selectDriverTerminals, startTrip, endTrip } = useLiveData();
-  const { isMockMode } = useAppSession();
 
   // Derived Route State
   const selectedRoute = snapshot.routes.find(

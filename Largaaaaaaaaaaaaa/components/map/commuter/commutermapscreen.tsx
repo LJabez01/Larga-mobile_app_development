@@ -206,7 +206,7 @@ export default function CommuterMapScreen() {
             <Text style={commuterOverlayStyles.statusText}>
               {snapshot.activeTrip
                 ? `${snapshot.activeTrip.routeLabel} is active. ${visibleVehicles.length} visible vehicle${visibleVehicles.length === 1 ? '' : 's'} on your current filter.`
-                : 'Ask the UI team to start a mock driver trip, or switch to Firebase mode when real live data is ready.'}
+                : 'No active route is currently broadcasting. Check again soon or select another route.'}
             </Text>
           </View>
         </>

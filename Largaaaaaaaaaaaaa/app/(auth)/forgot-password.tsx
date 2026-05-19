@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useRouter, type Href } from 'expo-router';
 
 import FormErrorText from '../../components/FormErrorText';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
@@ -46,7 +46,7 @@ export default function ForgotPasswordScreen() {
   );
 
   if (status === 'signedIn' && session) {
-    return <Redirect href={getDefaultAppPath(session.role)} />;
+    return <Redirect href={getDefaultAppPath(session) as Href} />;
   }
 
   const handleSend = async () => {

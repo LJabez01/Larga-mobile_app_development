@@ -9,13 +9,17 @@ The product is built around a map-first mobile experience:
 - the system uses route-aware filtering instead of showing every vehicle to every user
 
 ## Current state
-The repository is currently in an early foundation stage.
+The repository is currently in an active MVP foundation stage with the first trusted admin-review flow in place.
 
 What already exists:
 - Expo Router mobile app scaffold
 - Mapbox-based map screen foundation
 - Firebase app initialization
-- initial Firestore rules and schema notes
+- Firebase-backed auth and multi-role session hydration
+- commuter, driver, and pending-access routing
+- driver application intake during registration
+- minimal in-app admin verification panel for driver approvals
+- Firestore rules, schema notes, and emulator smoke coverage
 - approved commuter-side and driver-side feature design drafts
 - root planning documents for execution and constraints
 
@@ -69,15 +73,18 @@ Feature design references:
 - [Driver Feature Design](/C:/Users/Carl%20Lester/OneDrive/Documents/GitHub/Larga-mobile_app_development/Largaaaaaaaaaaaaa/docs/superpowers/specs/2026-05-03-driver-feature-design.md)
 
 ## MVP role model
-The current role model is intentionally strict:
+The current role model is role-state based:
 - `commuter`
 - `driver`
 - `admin`
 
 Rules:
-- one account has one role only
-- public signup should create `commuter` accounts only
-- `driver` and `admin` must be assigned through a trusted path
+- one Firebase Auth account can hold multiple role states
+- public signup can create:
+  - approved `commuter`
+  - pending `driver`
+  - approved `commuter` plus pending `driver`
+- approved `driver` and `admin` still require a trusted path
 
 ## Route model direction
 The current system direction is:
@@ -99,8 +106,8 @@ Current supporting files:
 The current project direction is free-first where possible, so the MVP should avoid unnecessary dependence on paid-only Firebase features.
 
 Current Firebase foundation assumptions:
-- public signup creates only `commuter` users
-- `driver` and `admin` promotion happens only through a trusted operator path
+- public signup supports `Commuter`, `Driver`, and `Both`
+- `driver` and `admin` approval happens only through a trusted operator path
 - the one-active-trip-per-driver MVP guard is enforced by storing each driver's active trip at `activeTrips/{driverId}`
 
 Firebase foundation workflow from the app workspace:
@@ -108,6 +115,8 @@ Firebase foundation workflow from the app workspace:
 ```powershell
 npm run seed:foundation:dry
 npm run seed:foundation
+npm run seed:admin
+npm run seed:admin:apply
 npx -y firebase-tools@latest emulators:exec --only auth,firestore "node scripts/rules-smoke.mjs"
 ```
 
@@ -143,15 +152,22 @@ EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 EXPO_PUBLIC_FIREBASE_APP_ID=...
 ```
 
-App mode is now determined by version-controlled runtime defaults instead of relying on each teammate's private `.env.local`:
-- development builds default to `mock`
-- production builds default to `firebase`
-- `EXPO_PUBLIC_APP_MODE` is now only an optional override when someone intentionally needs a different mode
+The mobile app now runs on the Firebase-backed runtime only.
+There is no separate in-app mock mode anymore, so development and production builds follow the same auth and live-data code paths.
+
+For admin account provisioning, create `Largaaaaaaaaaaaaa/.env.seed.local` from [`.env.seed.example`](/C:/Users/Carl%20Lester/OneDrive/Documents/GitHub/Larga-mobile_app_development/Largaaaaaaaaaaaaa/.env.seed.example) and run:
+
+```powershell
+npm run seed:admin
+npm run seed:admin:apply
+```
+
+The admin account uses the same login screen as every other user, but it routes into the in-app mobile verification panel after sign-in if the profile has `approvedRoles: ['admin']`.
 
 ## Current priorities
 1. Finalize route and terminal data model.
 2. Finalize Firestore collection and rule strategy.
-3. Implement first-sign-in user document creation.
+3. Harden trusted driver approval operations.
 4. Implement one-active-trip-per-driver flow.
 5. Implement driver live location publishing.
 6. Implement commuter route-aware vehicle filtering and ETA.

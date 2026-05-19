@@ -13,6 +13,8 @@
     "seed:foundation:dry": "node scripts/seed-foundation.mjs --dry-run",
     "seed:transport": "node --import tsx scripts/seed-transport-catalog.ts",
     "seed:transport:apply": "node --import tsx scripts/seed-transport-catalog.ts --apply",
+    "seed:admin": "node --import tsx scripts/seed-admin-account.ts",
+    "seed:admin:apply": "node --import tsx scripts/seed-admin-account.ts --apply",
     "rules:smoke": "npx -y firebase-tools@latest emulators:exec --only auth,firestore \"node --import tsx scripts/rules-smoke.ts\""
   },
   "dependencies": {

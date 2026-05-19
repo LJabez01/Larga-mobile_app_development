@@ -12,14 +12,20 @@ This document defines the current Firebase structure for the LARGA MVP backend f
   - `tripEvents` is append-only history
 
 ## Role model
-- `commuter`: default self-service role for a new signed-in user.
-- `driver`: operational role that can start trips and publish live location.
+- `commuter`: self-service role that may be approved immediately during public signup.
+- `driver`: operational role that requires application review before approval.
 - `admin`: trusted role for route management, moderation, and cleanup.
 
 ## Role assignment
-- Public signup creates only `commuter` user documents.
-- `driver` and `admin` are assigned through a trusted path.
-- Client code must not be able to promote a user into `driver` or `admin`.
+- One Firebase Auth account can hold multiple role states.
+- Public signup supports `Commuter`, `Driver`, and `Both` intents.
+- Access is decided from `approvedRoles`, not from a single `role` field.
+- Public signup may create:
+  - approved `commuter`
+  - pending `driver`
+  - approved `commuter` plus pending `driver`
+- Client code must not be able to promote a user into approved `driver` or `admin`.
+- A pre-provisioned admin account can sign in through the normal app login and access the internal verification panel.
 
 ## Collections
 
@@ -28,18 +34,48 @@ Profile and role metadata for each authenticated user.
 
 Suggested fields:
 - `uid`
-- `role`
 - `email`
 - `displayName`
 - `phoneNumber`
+- `approvedRoles`
+- `pendingRoleRequests`
+- `primaryRole`
 - `createdAt`
 - `updatedAt`
 
 Rules intent:
 - User can create and read their own document.
 - User can update only safe profile fields.
-- Public create is restricted to `role == 'commuter'`.
-- Role is immutable from the client.
+- Public create is restricted to safe startup states only.
+- Client cannot grant itself approved `driver` or `admin`.
+- Client cannot move roles from pending to approved.
+
+### `roleApplications/{applicationId}`
+Driver application records submitted from registration or later role-request flows.
+
+Suggested fields:
+- `uid`
+- `requestedRole`
+- `status`
+- `submittedAt`
+- `updatedAt`
+- `documents`
+- `reviewNotes`
+
+Document note:
+- Driver ID image storage may live outside Firebase Storage on the free-first path.
+- The current app stores the uploaded document URL and provider path in `documents.idImageUrl` and `documents.idImagePath`.
+
+Rules intent:
+- User can create and read only their own application records.
+- User can update pending driver application documents without changing approval state.
+- Admin or trusted reviewer path owns approval-state updates.
+
+Current application statuses:
+- `pending`
+- `approved`
+- `needs_resubmission`
+- `rejected`
 
 ### `routes/{routeId}`
 Canonical route records managed by admins and consumed by both driver and commuter flows.
@@ -149,9 +185,11 @@ Rules intent:
 
 ## Current backend milestone
 The current backend slice is complete when the system can:
-1. Create first-sign-in commuter user documents safely
+1. Create first-sign-in multi-role-safe user documents safely
 2. Read seeded terminals and routes
 3. Resolve a route by terminal pair and direction
 4. Start one active driver trip at `activeTrips/{driverId}`
 5. Write the latest driver location at `vehicleLocations/{driverId}`
 6. End the trip and clean up operational state safely
+7. Persist pending driver applications from registration
+8. Let a trusted admin account approve or reject driver applications inside the app

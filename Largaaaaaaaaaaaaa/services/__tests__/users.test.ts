@@ -39,10 +39,12 @@ test('buildUserDocument creates a commuter profile by default', () => {
 
   assert.deepEqual(profile, {
     uid: 'user-1',
-    role: 'commuter',
     email: 'commuter@example.com',
     displayName: 'Commuter User',
     phoneNumber: null,
+    approvedRoles: ['commuter'],
+    pendingRoleRequests: [],
+    primaryRole: 'commuter',
     createdAt: '2026-05-10T01:00:00.000Z',
     updatedAt: '2026-05-10T01:00:00.000Z',
   });

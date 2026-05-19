@@ -1,6 +1,7 @@
 // Firebase Auth Service - implements the real auth adapter for firebase mode.
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -11,22 +12,34 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 import { auth, db } from '@/firebase';
+import {
+  isAppRole,
+  normalizeApprovedRoles,
+  normalizePendingRoles,
+  resolveActiveRole,
+  resolveDefaultPostLoginRoute,
+  resolvePrimaryRole,
+  type AppRole,
+  type SelfServiceRole,
+} from '@/lib/domain/auth';
 import type {
-  AppRole,
   AppSession,
   AuthService,
   AuthSnapshot,
-  DemoRole,
   RegisterInput,
   SignInInput,
 } from '@/services/contracts/auth';
+import { createDriverApplication } from '@/services/driver-applications/firebase-driver-applications';
 
 interface FirebaseUserDocument {
   uid: string;
-  role: AppRole;
+  role?: AppRole;
   email: string;
   displayName: string;
   phoneNumber: string | null;
+  approvedRoles?: AppRole[];
+  pendingRoleRequests?: SelfServiceRole[];
+  primaryRole?: AppRole | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,9 +63,61 @@ function updateSnapshot(snapshot: AuthSnapshot): AuthSnapshot {
   return currentSnapshot;
 }
 
-// Role Guard - narrows unknown Firestore role values to supported app roles.
-function isAppRole(value: unknown): value is AppRole {
-  return value === 'commuter' || value === 'driver' || value === 'admin';
+function getRoleStateFromIntent(requestedRole: RegisterInput['requestedRole']) {
+  if (requestedRole === 'Driver') {
+    return {
+      approvedRoles: [] as AppRole[],
+      pendingRoleRequests: ['driver'] as SelfServiceRole[],
+      primaryRole: 'driver' as AppRole,
+    };
+  }
+
+  if (requestedRole === 'Both') {
+    return {
+      approvedRoles: ['commuter'] as AppRole[],
+      pendingRoleRequests: ['driver'] as SelfServiceRole[],
+      primaryRole: 'commuter' as AppRole,
+    };
+  }
+
+  return {
+    approvedRoles: ['commuter'] as AppRole[],
+    pendingRoleRequests: [] as SelfServiceRole[],
+    primaryRole: 'commuter' as AppRole,
+  };
+}
+
+function normalizeUserDocument(user: Pick<User, 'uid' | 'email' | 'displayName'>, data: Partial<FirebaseUserDocument>, preferredName?: string) {
+  const legacyRole = typeof data.role === 'string' && isAppRole(data.role) ? data.role : null;
+  const approvedRoles = normalizeApprovedRoles(data.approvedRoles);
+  const pendingRoleRequests = normalizePendingRoles(data.pendingRoleRequests);
+  const effectiveApprovedRoles = approvedRoles.length > 0
+    ? approvedRoles
+    : legacyRole
+      ? [legacyRole]
+      : [];
+  const primaryRole = resolvePrimaryRole(data.primaryRole ?? legacyRole, effectiveApprovedRoles, pendingRoleRequests);
+
+  return {
+    uid: user.uid,
+    email: typeof data.email === 'string' ? data.email : user.email ?? '',
+    displayName:
+      typeof data.displayName === 'string'
+        ? data.displayName
+        : resolveDisplayName(user, preferredName),
+    phoneNumber: data.phoneNumber ?? null,
+    approvedRoles: effectiveApprovedRoles,
+    pendingRoleRequests,
+    primaryRole,
+    createdAt:
+      typeof data.createdAt === 'string'
+        ? data.createdAt
+        : new Date().toISOString(),
+    updatedAt:
+      typeof data.updatedAt === 'string'
+        ? data.updatedAt
+        : new Date().toISOString(),
+  } satisfies Omit<FirebaseUserDocument, 'role'>;
 }
 
 // Auth Subscription - starts the one-time Firebase auth observer for session hydration.
@@ -90,12 +155,24 @@ function ensureSubscribed() {
 
 // Session Mapper - converts a Firebase user document into the shared app session shape.
 function toSession(userDoc: FirebaseUserDocument): AppSession {
+  const approvedRoles = normalizeApprovedRoles(userDoc.approvedRoles);
+  const pendingRoles = normalizePendingRoles(userDoc.pendingRoleRequests);
+  const primaryRole = resolvePrimaryRole(userDoc.primaryRole ?? userDoc.role ?? null, approvedRoles, pendingRoles);
+  const activeRole = resolveActiveRole(approvedRoles, primaryRole);
+  const availableRoleChoices = approvedRoles.filter((role) => role === 'commuter' || role === 'driver');
+
   return {
     userId: userDoc.uid,
-    role: userDoc.role,
+    role: activeRole,
     displayName: userDoc.displayName,
     email: userDoc.email,
-    mode: 'firebase',
+    approvedRoles,
+    pendingRoles,
+    primaryRole,
+    availableRoleChoices,
+    defaultPostLoginRoute: resolveDefaultPostLoginRoute(availableRoleChoices, pendingRoles, activeRole),
+    needsRoleSelection: availableRoleChoices.length > 1,
+    hasPendingAccessOnly: availableRoleChoices.length === 0 && pendingRoles.includes('driver'),
   };
 }
 
@@ -132,33 +209,18 @@ async function ensureUserDocument(user: Pick<User, 'uid' | 'email' | 'displayNam
   if (snapshot.exists()) {
     const data = snapshot.data() as Partial<FirebaseUserDocument>;
 
-    return {
-      uid: user.uid,
-      role: isAppRole(data.role) ? data.role : 'commuter',
-      email: typeof data.email === 'string' ? data.email : user.email,
-      displayName:
-        typeof data.displayName === 'string'
-          ? data.displayName
-          : resolveDisplayName(user, preferredName),
-      phoneNumber: data.phoneNumber ?? null,
-      createdAt:
-        typeof data.createdAt === 'string'
-          ? data.createdAt
-          : new Date().toISOString(),
-      updatedAt:
-        typeof data.updatedAt === 'string'
-          ? data.updatedAt
-          : new Date().toISOString(),
-    } satisfies FirebaseUserDocument;
+    return normalizeUserDocument(user, data, preferredName);
   }
 
   const timestamp = new Date().toISOString();
-  const userDoc: FirebaseUserDocument = {
+  const userDoc = {
     uid: user.uid,
-    role: 'commuter',
     email: user.email,
     displayName: resolveDisplayName(user, preferredName),
     phoneNumber: null,
+    approvedRoles: ['commuter'] as AppRole[],
+    pendingRoleRequests: [] as SelfServiceRole[],
+    primaryRole: 'commuter' as AppRole,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -210,16 +272,39 @@ export const firebaseAuthService: AuthService = {
     ensureSubscribed();
     const credential = await createUserWithEmailAndPassword(auth, input.email.trim(), input.password);
 
-    if (input.displayName.trim()) {
-      await updateProfile(credential.user, { displayName: input.displayName.trim() });
+    try {
+      if (input.displayName.trim()) {
+        await updateProfile(credential.user, { displayName: input.displayName.trim() });
+      }
+
+      const timestamp = new Date().toISOString();
+      const roleState = getRoleStateFromIntent(input.requestedRole);
+      const userDoc: FirebaseUserDocument = {
+        uid: credential.user.uid,
+        email: credential.user.email ?? input.email.trim(),
+        displayName: resolveDisplayName(credential.user, input.displayName),
+        phoneNumber: null,
+        approvedRoles: roleState.approvedRoles,
+        pendingRoleRequests: roleState.pendingRoleRequests,
+        primaryRole: roleState.primaryRole,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      await setDoc(doc(db, 'users', credential.user.uid), userDoc);
+
+      if (roleState.pendingRoleRequests.includes('driver')) {
+        await createDriverApplication(credential.user.uid, input);
+      }
+
+      return updateSnapshot({
+        status: 'signedIn',
+        session: toSession(userDoc),
+      });
+    } catch (error) {
+      await deleteUser(credential.user);
+      throw error;
     }
-
-    const userDoc = await ensureUserDocument(credential.user, input.displayName);
-
-    return updateSnapshot({
-      status: 'signedIn',
-      session: toSession(userDoc),
-    });
   },
 
   async requestPasswordReset(input) {
@@ -233,10 +318,6 @@ export const firebaseAuthService: AuthService = {
       status: 'signedOut',
       session: null,
     });
-  },
-
-  async startDemoSession(_role: DemoRole) {
-    throw new Error('Developer demo sessions are only available in mock mode.');
   },
 
   async reset() {

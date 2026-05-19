@@ -26,8 +26,11 @@ The current best path is to build the backend and route-data foundation first, b
 ### Phase 2: Identity and role-safe data
 - Implement authentication flow support in Firebase
 - Create user documents on first sign-in
-- Restrict public signup to `commuter`
-- Define trusted process for assigning `driver` and `admin`
+- Support registration intents for `Commuter`, `Driver`, and `Both`
+- Persist `approvedRoles`, `pendingRoleRequests`, and `primaryRole`
+- Create driver role-application records during registration
+- Add trusted in-app admin review flow for approving `driver`
+- Define ongoing trusted process for assigning `admin`
 
 ### Phase 3: Driver operational flow
 - Implement predefined terminal selection data
@@ -60,7 +63,7 @@ The current best path is to build the backend and route-data foundation first, b
 
 ## Recommended implementation order
 1. Route and terminal data model
-2. Role-safe auth and user document creation
+2. Role-state auth, user document creation, and driver application intake
 3. Driver active trip lifecycle
 4. Driver live location publishing
 5. Commuter route-path matching
@@ -73,4 +76,4 @@ The current best path is to build the backend and route-data foundation first, b
 - [Driver Feature Design](C:/Users/Carl Lester/OneDrive/Documents/GitHub/Larga-mobile_app_development/Largaaaaaaaaaaaaa/docs/superpowers/specs/2026-05-03-driver-feature-design.md)
 
 ## Immediate next milestone
-Implement the backend-ready route, terminal, user, active trip, and vehicle location foundation so commuter and driver flows can be built on one consistent system model.
+Harden trip reliability, route visibility, and release operations on top of the now-complete registration-to-approval foundation.

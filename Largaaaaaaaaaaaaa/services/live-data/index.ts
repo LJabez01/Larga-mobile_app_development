@@ -1,7 +1,5 @@
-// Live Data Service Selector - chooses the active live-data adapter for the current app mode.
+// Live Data Service Selector - exports the Firebase live-data adapter as the only runtime service.
 import type { LiveDataService } from '@/services/contracts/live-data';
-import { isMockMode } from '@/services/runtime/app-mode';
+import { firebaseLiveDataService } from '@/services/live-data/firebase-live-data';
 
-export const liveDataService: LiveDataService = isMockMode()
-  ? (require('./mock-live-data') as { mockLiveDataService: LiveDataService }).mockLiveDataService
-  : (require('./firebase-live-data') as { firebaseLiveDataService: LiveDataService }).firebaseLiveDataService;
+export const liveDataService: LiveDataService = firebaseLiveDataService;

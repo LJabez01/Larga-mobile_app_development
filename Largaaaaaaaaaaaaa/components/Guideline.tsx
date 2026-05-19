@@ -11,7 +11,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 
@@ -62,7 +62,7 @@ export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
   const router = useRouter();
   const { session, status } = useAppSession();
   const defaultPath = status === 'signedIn' && session
-    ? getDefaultAppPath(session.role)
+    ? getDefaultAppPath(session)
     : '/login';
 
   const handleNext = () => {
@@ -71,7 +71,7 @@ export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
     } else if (onComplete) {
       onComplete();
     } else {
-      router.replace(defaultPath);
+      router.replace(defaultPath as Href);
     }
   };
 
@@ -79,7 +79,7 @@ export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
     if (onSkip) {
       onSkip();
     } else {
-      router.replace(defaultPath);
+      router.replace(defaultPath as Href);
     }
   };
 

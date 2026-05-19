@@ -1,7 +1,5 @@
-// Auth Service Selector - chooses the active auth adapter for the current app mode.
+// Auth Service Selector - exports the Firebase auth adapter as the only runtime auth service.
 import type { AuthService } from '@/services/contracts/auth';
-import { isMockMode } from '@/services/runtime/app-mode';
+import { firebaseAuthService } from '@/services/auth/firebase-auth';
 
-export const authService: AuthService = isMockMode()
-  ? (require('./mock-auth') as { mockAuthService: AuthService }).mockAuthService
-  : (require('./firebase-auth') as { firebaseAuthService: AuthService }).firebaseAuthService;
+export const authService: AuthService = firebaseAuthService;

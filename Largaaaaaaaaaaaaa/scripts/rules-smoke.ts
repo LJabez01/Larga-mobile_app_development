@@ -10,6 +10,7 @@ import { deleteApp as deleteClientApp, getApps as getClientApps, initializeApp a
 
 import { serializeRouteCoordinates } from '@/lib/domain/transport';
 import { ROUTE_SEED, TERMINAL_SEED } from '@/lib/seed/transport-catalog';
+import type { AppRole, SelfServiceRole } from '@/lib/domain/auth';
 
 const projectId = process.env.GCLOUD_PROJECT || 'demo-no-project';
 const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
@@ -79,7 +80,12 @@ async function seedCatalog() {
   await batch.commit();
 }
 
-async function createSignedInUser(email: string, password: string, role: 'commuter' | 'driver' | 'admin') {
+async function createSignedInUser(
+  email: string,
+  password: string,
+  approvedRoles: AppRole[],
+  pendingRoleRequests: SelfServiceRole[] = [],
+) {
   const adminApp = getAdminApp();
   const adminAuth = getAdminAuth(adminApp);
   const adminDb = getAdminFirestore(adminApp);
@@ -94,15 +100,17 @@ async function createSignedInUser(email: string, password: string, role: 'commut
 
   await adminDb.collection('users').doc(userRecord.uid).set({
     uid: userRecord.uid,
-    role,
     email,
     displayName: email.split('@')[0],
     phoneNumber: null,
+    approvedRoles,
+    pendingRoleRequests,
+    primaryRole: approvedRoles[0] ?? (pendingRoleRequests[0] === 'driver' ? 'driver' : null),
     createdAt: '2026-05-12T00:00:00.000Z',
     updatedAt: '2026-05-12T00:00:00.000Z',
   });
 
-  const client = createClient(`${role}-${userRecord.uid}`);
+  const client = createClient(`${approvedRoles.join('-') || pendingRoleRequests.join('-')}-${userRecord.uid}`);
 
   try {
     await createUserWithEmailAndPassword(client.auth, email, password);
@@ -126,9 +134,142 @@ async function main() {
   try {
     await seedCatalog();
 
-    const driver = await createSignedInUser('driver@larga.test', 'password123', 'driver');
-    const commuter = await createSignedInUser('commuter@larga.test', 'password123', 'commuter');
-    const admin = await createSignedInUser('admin@larga.test', 'password123', 'admin');
+    const driver = await createSignedInUser('driver@larga.test', 'password123', ['driver']);
+    const commuter = await createSignedInUser('commuter@larga.test', 'password123', ['commuter']);
+    const admin = await createSignedInUser('admin@larga.test', 'password123', ['admin']);
+    const pendingDriver = await createSignedInUser('pending-driver@larga.test', 'password123', [], ['driver']);
+
+    await expectAllowed(
+      setDoc(doc(commuter.db, 'users', commuter.uid), {
+        uid: commuter.uid,
+        email: 'commuter@larga.test',
+        displayName: 'commuter',
+        phoneNumber: null,
+        approvedRoles: ['commuter'],
+        pendingRoleRequests: ['driver'],
+        primaryRole: 'commuter',
+        createdAt: '2026-05-12T00:00:00.000Z',
+        updatedAt: '2026-05-12T00:01:00.000Z',
+      }),
+    );
+
+    await expectAllowed(
+      setDoc(doc(pendingDriver.db, 'roleApplications', `driver_${pendingDriver.uid}`), {
+        uid: pendingDriver.uid,
+        requestedRole: 'driver',
+        status: 'pending',
+        submittedAt: '2026-05-12T00:02:00.000Z',
+        updatedAt: '2026-05-12T00:02:00.000Z',
+        documents: {
+          vehicleType: 'Jeepney',
+          plateNumber: 'ABC1234',
+          licenseNumber: 'A12-34-123456',
+          idImagePath: 'driver-applications/demo-id.jpg',
+          idImageUrl: 'https://example.test/driver-applications/demo-id.jpg',
+        },
+        reviewNotes: [],
+      }),
+    );
+
+    await expectDenied(
+      setDoc(doc(pendingDriver.db, 'users', pendingDriver.uid), {
+        uid: pendingDriver.uid,
+        email: 'pending-driver@larga.test',
+        displayName: 'pending-driver',
+        phoneNumber: null,
+        approvedRoles: ['driver'],
+        pendingRoleRequests: [],
+        primaryRole: 'driver',
+        createdAt: '2026-05-12T00:00:00.000Z',
+        updatedAt: '2026-05-12T00:03:00.000Z',
+      }),
+    );
+
+    await expectDenied(
+      setDoc(doc(commuter.db, 'roleApplications', `driver_${pendingDriver.uid}`), {
+        uid: pendingDriver.uid,
+        requestedRole: 'driver',
+        status: 'approved',
+        submittedAt: '2026-05-12T00:02:00.000Z',
+        updatedAt: '2026-05-12T00:05:00.000Z',
+        documents: {
+          vehicleType: 'Jeepney',
+          plateNumber: 'ABC1234',
+          licenseNumber: 'A12-34-123456',
+          idImagePath: 'driver-applications/demo-id.jpg',
+          idImageUrl: 'https://example.test/driver-applications/demo-id.jpg',
+        },
+        reviewNotes: ['attempted escalation'],
+      }),
+    );
+
+    await expectAllowed(
+      setDoc(doc(admin.db, 'roleApplications', `driver_${pendingDriver.uid}`), {
+        uid: pendingDriver.uid,
+        requestedRole: 'driver',
+        status: 'needs_resubmission',
+        submittedAt: '2026-05-12T00:02:00.000Z',
+        updatedAt: '2026-05-12T00:04:00.000Z',
+        documents: {
+          vehicleType: 'Jeepney',
+          plateNumber: 'ABC1234',
+          licenseNumber: 'A12-34-123456',
+          idImagePath: 'driver-applications/demo-id.jpg',
+          idImageUrl: 'https://example.test/driver-applications/demo-id.jpg',
+        },
+        reviewNotes: ['Please upload a clearer ID image'],
+      }),
+    );
+
+    await expectAllowed(
+      setDoc(doc(pendingDriver.db, 'roleApplications', `driver_${pendingDriver.uid}`), {
+        uid: pendingDriver.uid,
+        requestedRole: 'driver',
+        status: 'pending',
+        submittedAt: '2026-05-12T00:02:00.000Z',
+        updatedAt: '2026-05-12T00:04:30.000Z',
+        documents: {
+          vehicleType: 'Jeepney',
+          plateNumber: 'ABC1234',
+          licenseNumber: 'A12-34-123456',
+          idImagePath: 'driver-applications/demo-id-2.jpg',
+          idImageUrl: 'https://example.test/driver-applications/demo-id-2.jpg',
+        },
+        reviewNotes: ['Please upload a clearer ID image'],
+      }),
+    );
+
+    await expectAllowed(
+      setDoc(doc(admin.db, 'roleApplications', `driver_${pendingDriver.uid}`), {
+        uid: pendingDriver.uid,
+        requestedRole: 'driver',
+        status: 'approved',
+        submittedAt: '2026-05-12T00:02:00.000Z',
+        updatedAt: '2026-05-12T00:05:00.000Z',
+        documents: {
+          vehicleType: 'Jeepney',
+          plateNumber: 'ABC1234',
+          licenseNumber: 'A12-34-123456',
+          idImagePath: 'driver-applications/demo-id.jpg',
+          idImageUrl: 'https://example.test/driver-applications/demo-id.jpg',
+        },
+        reviewNotes: ['approved by admin'],
+      }),
+    );
+
+    await expectAllowed(
+      setDoc(doc(admin.db, 'users', pendingDriver.uid), {
+        uid: pendingDriver.uid,
+        email: 'pending-driver@larga.test',
+        displayName: 'pending-driver',
+        phoneNumber: null,
+        approvedRoles: ['driver'],
+        pendingRoleRequests: [],
+        primaryRole: 'driver',
+        createdAt: '2026-05-12T00:00:00.000Z',
+        updatedAt: '2026-05-12T00:05:00.000Z',
+      }),
+    );
 
     const tripPayload = {
       driverId: driver.uid,

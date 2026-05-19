@@ -5,7 +5,7 @@
 
 // ─── Types ────────────────────────────────────────────────────
 
-export type Role = '' | 'Driver' | 'Commuter';
+export type RegistrationRole = '' | 'Driver' | 'Commuter' | 'Both';
 export type VehicleType = '' | 'Jeepney' | 'Bus';
 
 export interface ValidationResult {
@@ -177,7 +177,7 @@ export interface RegistrationFields {
   email: string;
   password: string;
   confirmPassword: string;
-  selectedRole: Role;
+  selectedRole: RegistrationRole;
   // Driver-only
   selectedVehicle?: VehicleType;
   plateNumber?: string;
@@ -186,12 +186,48 @@ export interface RegistrationFields {
   agreed: boolean;
 }
 
+export interface DriverApplicationFields {
+  selectedVehicle?: VehicleType;
+  plateNumber?: string;
+  licenseNumber?: string;
+  idImage?: string | null;
+}
+
+export function validateDriverApplicationFields(fields: DriverApplicationFields) {
+  const fieldErrors: Record<string, string> = {};
+
+  if (!fields.selectedVehicle) {
+    fieldErrors.selectedVehicle = 'Please select a vehicle type.';
+  }
+
+  if (!hasValue(fields.plateNumber ?? '')) {
+    fieldErrors.plateNumber = 'Plate number is required.';
+  } else if (!isValidPlateNumber(fields.plateNumber ?? '')) {
+    fieldErrors.plateNumber =
+      'Enter a valid Philippine plate number (e.g. ABC1234).';
+  }
+
+  if (!hasValue(fields.licenseNumber ?? '')) {
+    fieldErrors.licenseNumber = 'License number is required.';
+  } else if (!isValidLicenseNumber(fields.licenseNumber ?? '')) {
+    fieldErrors.licenseNumber =
+      'Enter a valid LTO license number (e.g. A12-34-123456).';
+  }
+
+  if (!fields.idImage) {
+    fieldErrors.idImage = 'Please upload a valid government ID.';
+  }
+
+  return fieldErrors;
+}
+
 /**
  * Full registration validation with field-level error map.
- * Driver-specific fields are only checked when the role is "Driver".
+ * Driver-specific fields are checked when the registration intent includes driver access.
  */
 export function validateRegistrationForm(fields: RegistrationFields): ValidationResult {
   const fieldErrors: Record<string, string> = {};
+  const includesDriverIntent = fields.selectedRole === 'Driver' || fields.selectedRole === 'Both';
 
   // ── Username ──────────────────────────────────────────────
   if (!hasValue(fields.username)) {
@@ -225,32 +261,12 @@ export function validateRegistrationForm(fields: RegistrationFields): Validation
 
   // ── Role ──────────────────────────────────────────────────
   if (!fields.selectedRole) {
-    fieldErrors.selectedRole = 'Please select your role (Driver or Commuter).';
+    fieldErrors.selectedRole = 'Please select your role (Driver, Commuter, or Both).';
   }
 
   // ── Driver-Specific Fields ────────────────────────────────
-  if (fields.selectedRole === 'Driver') {
-    if (!fields.selectedVehicle) {
-      fieldErrors.selectedVehicle = 'Please select a vehicle type.';
-    }
-
-    if (!hasValue(fields.plateNumber ?? '')) {
-      fieldErrors.plateNumber = 'Plate number is required.';
-    } else if (!isValidPlateNumber(fields.plateNumber ?? '')) {
-      fieldErrors.plateNumber =
-        'Enter a valid Philippine plate number (e.g. ABC1234).';
-    }
-
-    if (!hasValue(fields.licenseNumber ?? '')) {
-      fieldErrors.licenseNumber = 'License number is required.';
-    } else if (!isValidLicenseNumber(fields.licenseNumber ?? '')) {
-      fieldErrors.licenseNumber =
-        'Enter a valid LTO license number (e.g. A12-34-123456).';
-    }
-
-    if (!fields.idImage) {
-      fieldErrors.idImage = 'Please upload a valid government ID.';
-    }
+  if (includesDriverIntent) {
+    Object.assign(fieldErrors, validateDriverApplicationFields(fields));
   }
 
   // ── Terms & Conditions ────────────────────────────────────

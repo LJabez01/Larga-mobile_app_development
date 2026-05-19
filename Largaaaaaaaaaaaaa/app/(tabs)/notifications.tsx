@@ -1,6 +1,6 @@
 // Notifications Tab Screen - mounts the notifications experience.
 import { ActivityIndicator, View } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useRouter, type Href } from 'expo-router';
 import NotificationsScreen from '@/components/notifications';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 import { useLiveData } from '@/components/providers/LiveDataProvider';
@@ -22,13 +22,17 @@ export default function NotificationsPage() {
     return <Redirect href="/login" />;
   }
 
+  if (session.needsRoleSelection && session.role === null) {
+    return <Redirect href="/role-selection" />;
+  }
+
   const role = session.role === 'driver' ? 'driver' : 'commuter';
 
   return (
     <NotificationsScreen
       userRole={role}
       notifications={snapshot.notificationsByRole[role]}
-      onBack={() => router.replace(getDefaultAppPath(session.role))}
+      onBack={() => router.replace(getDefaultAppPath(session) as Href)}
     />
   );
 }

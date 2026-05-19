@@ -6,11 +6,15 @@
 - Avoid expanding into admin analytics, dispatching, ticketing, or broad predictive features in the current MVP.
 
 ## Role constraints
-- Roles are strictly separate.
 - Current roles are `commuter`, `driver`, and `admin`.
-- One account has one role only.
-- Public signup should create `commuter` accounts only.
-- `driver` and `admin` must be assigned through a trusted path.
+- One Firebase Auth account may hold multiple role states over time.
+- Authorization must come from approved role state, not from a single legacy `role` field.
+- Public signup may create:
+  - approved `commuter`
+  - pending `driver`
+  - approved `commuter` plus pending `driver`
+- Public signup must not grant approved `driver` or `admin`.
+- `driver` approval and `admin` assignment must stay on a trusted path.
 
 ## Data-model constraints
 - Stored route records are the route source of truth.

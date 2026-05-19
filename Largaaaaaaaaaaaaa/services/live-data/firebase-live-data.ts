@@ -14,12 +14,14 @@ import {
 } from 'firebase/firestore';
 
 import { auth, db } from '@/firebase';
+import { isAppRole, normalizeApprovedRoles } from '@/lib/domain/auth';
 import { createEmptyDriverSelection, deserializeRouteCoordinates, resolveRouteForTerminals, type DriverSelectionState, type RouteRecord, type TerminalOption, type VehicleType } from '@/lib/domain/transport';
 import type { ActiveTripState, LiveDataService, LiveDataSnapshot, PublishDriverLocationInput, VehicleMarker } from '@/services/contracts/live-data';
 import { COMMUTER_NOTIFICATIONS, DRIVER_NOTIFICATIONS } from '@/services/fixtures/notifications';
 
 interface FirebaseUserDocument {
   role?: unknown;
+  approvedRoles?: unknown;
 }
 
 interface FirestoreRouteRecord {
@@ -363,8 +365,10 @@ async function requireDriverRole(uid: string) {
   }
 
   const userData = userSnapshot.data() as FirebaseUserDocument;
+  const approvedRoles = normalizeApprovedRoles(userData.approvedRoles);
+  const hasLegacyDriverRole = typeof userData.role === 'string' && isAppRole(userData.role) && userData.role === 'driver';
 
-  if (userData.role !== 'driver') {
+  if (!approvedRoles.includes('driver') && !hasLegacyDriverRole) {
     throw new Error('Driver access is required for this action.');
   }
 }

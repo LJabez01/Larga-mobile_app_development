@@ -1,4 +1,4 @@
-// Login Screen - handles sign-in and mock-mode demo entry.
+// Login Screen - handles Firebase-backed sign-in.
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useRouter, type Href } from 'expo-router';
 
 import FormErrorText from '../../components/FormErrorText';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
@@ -42,7 +42,7 @@ export default function LoginScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const { isMockMode, session, signIn, startDemoSession, status } = useAppSession();
+  const { session, signIn, status } = useAppSession();
 
   // Form Validation - keeps the email and password validation result in sync with input changes.
   const validation = useMemo(
@@ -51,7 +51,7 @@ export default function LoginScreen() {
   );
 
   if (status === 'signedIn' && session) {
-    return <Redirect href={getDefaultAppPath(session.role)} />;
+    return <Redirect href={getDefaultAppPath(session) as Href} />;
   }
 
   // Login Logic - validates the form and starts the real sign-in flow.
@@ -75,19 +75,7 @@ export default function LoginScreen() {
     }
   };
 
-  // Demo Session Logic - starts a role-specific mock session for fast UI testing.
-  const handleStartDemo = async (role: 'commuter' | 'driver') => {
-    setAuthError(null);
-
-    try {
-      await startDemoSession(role);
-      router.push('/guideline');
-    } catch (error) {
-      setAuthError(getFriendlyAuthError(error));
-    }
-  };
-
-  // Screen Layout - renders the login form, mock helpers, and auth actions.
+  // Screen Layout - renders the login form and auth actions.
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
@@ -105,35 +93,6 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.form}>
-        {isMockMode ? (
-          <View style={styles.devCard}>
-            <Text style={styles.devTitle}>Developer Testing Mode</Text>
-            <Text style={styles.devText}>
-              Mock mode is active. Use the tester entry for fast role switching, or sign in with any valid-looking email.
-            </Text>
-            <View style={styles.devButtons}>
-              <TouchableOpacity
-                style={[styles.devButton, styles.devButtonPrimary]}
-                onPress={() => router.push('/roleselection')}
-              >
-                <Text style={styles.devButtonPrimaryText}>Open Tester Entry</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.devButton}
-                onPress={() => handleStartDemo('commuter')}
-              >
-                <Text style={styles.devButtonText}>Demo Commuter</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.devButton}
-                onPress={() => handleStartDemo('driver')}
-              >
-                <Text style={styles.devButtonText}>Demo Driver</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
-
         <View style={styles.inputGroup}>
           {submitted && <FormErrorText error={validation.fieldErrors?.email} />}
           <View
@@ -230,50 +189,6 @@ const styles = StyleSheet.create({
   title: { color: '#fff', fontSize: 28, fontWeight: '800', marginBottom: 6 },
   subtitle: { color: '#D1FAE5', fontSize: 13, fontWeight: '600' },
   form: { paddingHorizontal: 20, paddingTop: 28 },
-  devCard: {
-    marginBottom: 20,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  devTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: TEXT,
-    marginBottom: 6,
-  },
-  devText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#166534',
-  },
-  devButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 14,
-  },
-  devButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-  },
-  devButtonPrimary: {
-    backgroundColor: PRIMARY,
-  },
-  devButtonText: {
-    color: '#166534',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  devButtonPrimaryText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 13,
-  },
   inputGroup: {
     marginBottom: 14,
   },

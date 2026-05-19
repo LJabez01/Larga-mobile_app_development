@@ -1,7 +1,7 @@
 // Legacy User Helpers - preserves the older Firestore user document utilities.
 import type { User } from 'firebase/auth';
 import { doc, getDoc, runTransaction, type Firestore } from 'firebase/firestore';
-import type { AppRole } from '@/lib/domain/auth';
+import type { AppRole, SelfServiceRole } from '@/lib/domain/auth';
 import { isAppUserDocument, type AppUserDocument } from '@/lib/domain/users';
 
 export interface EnsureUserOptions {
@@ -12,7 +12,9 @@ interface BuildUserDocumentInput {
   readonly uid: string;
   readonly email: string;
   readonly displayName: string;
-  readonly role?: AppRole;
+  readonly approvedRoles?: AppRole[];
+  readonly pendingRoleRequests?: SelfServiceRole[];
+  readonly primaryRole?: AppRole | null;
   readonly now?: string;
 }
 
@@ -32,13 +34,17 @@ export function buildFallbackDisplayName(email: string): string {
 
 export function buildUserDocument(input: BuildUserDocumentInput): AppUserDocument {
   const timestamp = input.now ?? new Date().toISOString();
+  const approvedRoles = input.approvedRoles ?? ['commuter'];
+  const pendingRoleRequests = input.pendingRoleRequests ?? [];
 
   return {
     uid: input.uid,
-    role: input.role ?? 'commuter',
     email: input.email,
     displayName: input.displayName.trim(),
     phoneNumber: null,
+    approvedRoles,
+    pendingRoleRequests,
+    primaryRole: input.primaryRole ?? approvedRoles[0] ?? null,
     createdAt: timestamp,
     updatedAt: timestamp,
   };

@@ -2,36 +2,44 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { authService } from '@/services/auth/index';
-import type { AppRole, AppSession, AuthSnapshot, DemoRole, RegisterInput, SignInInput } from '@/services/contracts/auth';
-import { getAppMode } from '@/services/runtime/app-mode';
+import type { AppRole, AppRoute, AppSession, AuthSnapshot, RegisterInput, SignInInput } from '@/services/contracts/auth';
 
 type SessionStatus = 'loading' | 'signedOut' | 'signedIn';
 
 interface AppSessionContextValue {
-  mode: 'mock' | 'firebase';
-  isMockMode: boolean;
   status: SessionStatus;
   session: AppSession | null;
   signIn: (input: SignInInput) => Promise<AuthSnapshot>;
   register: (input: RegisterInput) => Promise<AuthSnapshot>;
   requestPasswordReset: (email: string) => Promise<void>;
   signOut: () => Promise<AuthSnapshot>;
-  startDemoSession: (role: DemoRole) => Promise<AuthSnapshot>;
-  resetMockState: () => Promise<void>;
+  selectRole: (role: AppRole) => void;
 }
 
 const AppSessionContext = createContext<AppSessionContextValue | undefined>(undefined);
 
-// Default Route Helper - maps a signed-in role to its landing screen.
-export function getDefaultAppPath(role: AppRole): '/commuter' | '/driver' {
-  return role === 'driver' ? '/driver' : '/commuter';
+// Default Route Helper - maps a signed-in session to its landing screen.
+export function getDefaultAppPath(session: AppSession): AppRoute {
+  if (session.approvedRoles.includes('admin')) {
+    return '/admin';
+  }
+
+  if (session.needsRoleSelection && session.role === 'driver') {
+    return '/driver';
+  }
+
+  if (session.needsRoleSelection && session.role === 'commuter') {
+    return '/commuter';
+  }
+
+  return session.defaultPostLoginRoute;
 }
 
 export function AppSessionProvider({ children }: { children: ReactNode }) {
   // Session State - stores the current auth session and loading status for the app.
   const [status, setStatus] = useState<SessionStatus>('loading');
-  const [session, setSession] = useState<AppSession | null>(null);
-  const mode = getAppMode();
+  const [rawSession, setRawSession] = useState<AppSession | null>(null);
+  const [selectedRole, setSelectedRole] = useState<AppRole | null>(null);
 
   // Session Sync - hydrates the initial auth state and listens for future auth changes.
   useEffect(() => {
@@ -45,7 +53,7 @@ export function AppSessionProvider({ children }: { children: ReactNode }) {
         }
 
         setStatus(snapshot.status);
-        setSession(snapshot.session);
+        setRawSession(snapshot.session);
       })
       .catch(() => {
         if (!mounted) {
@@ -53,7 +61,8 @@ export function AppSessionProvider({ children }: { children: ReactNode }) {
         }
 
         setStatus('signedOut');
-        setSession(null);
+        setRawSession(null);
+        setSelectedRole(null);
       });
 
     const unsubscribe = authService.subscribe((snapshot) => {
@@ -62,7 +71,11 @@ export function AppSessionProvider({ children }: { children: ReactNode }) {
       }
 
       setStatus(snapshot.status);
-      setSession(snapshot.session);
+      setRawSession(snapshot.session);
+
+      if (snapshot.status === 'signedOut') {
+        setSelectedRole(null);
+      }
     });
 
     return () => {
@@ -71,21 +84,63 @@ export function AppSessionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!rawSession) {
+      if (selectedRole !== null) {
+        setSelectedRole(null);
+      }
+      return;
+    }
+
+    if (!rawSession.needsRoleSelection) {
+      if (selectedRole !== null) {
+        setSelectedRole(null);
+      }
+      return;
+    }
+
+    if (selectedRole && rawSession.approvedRoles.includes(selectedRole)) {
+      return;
+    }
+
+    if (selectedRole !== null) {
+      setSelectedRole(null);
+    }
+  }, [rawSession, selectedRole]);
+
+  const session = useMemo<AppSession | null>(() => {
+    if (!rawSession) {
+      return null;
+    }
+
+    if (!rawSession.needsRoleSelection) {
+      return rawSession;
+    }
+
+    return {
+      ...rawSession,
+      role: selectedRole && rawSession.approvedRoles.includes(selectedRole) ? selectedRole : null,
+    };
+  }, [rawSession, selectedRole]);
+
   // Context Value - exposes the current session state together with auth actions.
   const value = useMemo<AppSessionContextValue>(
     () => ({
-      mode,
-      isMockMode: mode === 'mock',
       status,
       session,
       signIn: authService.signIn,
       register: authService.register,
       requestPasswordReset: (email) => authService.requestPasswordReset({ email }),
       signOut: authService.signOut,
-      startDemoSession: authService.startDemoSession,
-      resetMockState: authService.reset,
+      selectRole: (role) => {
+        if (!rawSession?.approvedRoles.includes(role)) {
+          return;
+        }
+
+        setSelectedRole(role);
+      },
     }),
-    [mode, session, status],
+    [rawSession, session, status],
   );
 
   return (

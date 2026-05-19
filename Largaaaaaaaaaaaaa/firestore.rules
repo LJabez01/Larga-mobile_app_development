@@ -18,16 +18,27 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    function isAdmin() {
+    function userHasApprovedRole(uid, role) {
       return signedIn()
-        && exists(userDocPath(request.auth.uid))
-        && get(userDocPath(request.auth.uid)).data.role == 'admin';
+        && exists(userDocPath(uid))
+        && (
+          (
+            get(userDocPath(uid)).data.approvedRoles is list
+            && get(userDocPath(uid)).data.approvedRoles.hasAny([role])
+          )
+          || (
+            !(get(userDocPath(uid)).data.approvedRoles is list)
+            && get(userDocPath(uid)).data.role == role
+          )
+        );
+    }
+
+    function isAdmin() {
+      return userHasApprovedRole(request.auth.uid, 'admin');
     }
 
     function isDriver() {
-      return signedIn()
-        && exists(userDocPath(request.auth.uid))
-        && get(userDocPath(request.auth.uid)).data.role == 'driver';
+      return userHasApprovedRole(request.auth.uid, 'driver');
     }
 
     function activeTripMatchesRequest(driverId, routeId) {
@@ -36,35 +47,198 @@ service cloud.firestore {
         && get(activeTripPath(driverId)).data.routeId == routeId;
     }
 
-    match /users/{uid} {
-      allow create: if isOwner(uid)
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.role == 'commuter'
+    function validPublicUserProfile() {
+      return request.resource.data.uid == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.displayName is string
+        && (request.resource.data.phoneNumber == null || request.resource.data.phoneNumber is string)
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string
+        && request.resource.data.primaryRole in ['commuter', 'driver']
+        && request.resource.data.approvedRoles is list
+        && request.resource.data.approvedRoles.size() <= 1
+        && request.resource.data.approvedRoles.hasOnly(['commuter'])
+        && request.resource.data.pendingRoleRequests is list
+        && request.resource.data.pendingRoleRequests.size() <= 1
+        && request.resource.data.pendingRoleRequests.hasOnly(['driver'])
+        && !(request.resource.data.approvedRoles.size() == 0 && request.resource.data.pendingRoleRequests.size() == 0)
+        && (
+          (
+            request.resource.data.approvedRoles.hasAny(['commuter'])
+            && request.resource.data.primaryRole == 'commuter'
+          )
+          || (
+            !request.resource.data.approvedRoles.hasAny(['commuter'])
+            && request.resource.data.pendingRoleRequests.hasAny(['driver'])
+            && request.resource.data.primaryRole == 'driver'
+          )
+        );
+    }
+
+    function validDriverApplicationPayload(data, uid) {
+      return data.uid == uid
+        && data.requestedRole == 'driver'
+        && data.status == 'pending'
+        && data.submittedAt is string
+        && data.updatedAt is string
+        && data.reviewNotes is list
+        && data.reviewNotes.size() == 0
+        && data.documents is map
+        && data.documents.keys().hasOnly([
+          'vehicleType',
+          'plateNumber',
+          'licenseNumber',
+          'idImagePath',
+          'idImageUrl'
+        ])
+        && data.documents.vehicleType is string
+        && data.documents.plateNumber is string
+        && data.documents.licenseNumber is string
+        && (data.documents.idImagePath == null || data.documents.idImagePath is string)
+        && (data.documents.idImageUrl == null || data.documents.idImageUrl is string);
+    }
+
+    function validDriverApplicationDocumentShape(data, uid) {
+      return data.uid == uid
+        && data.requestedRole == 'driver'
+        && data.submittedAt is string
+        && data.updatedAt is string
+        && data.reviewNotes is list
+        && data.documents is map
+        && data.documents.keys().hasOnly([
+          'vehicleType',
+          'plateNumber',
+          'licenseNumber',
+          'idImagePath',
+          'idImageUrl'
+        ])
+        && data.documents.vehicleType is string
+        && data.documents.plateNumber is string
+        && data.documents.licenseNumber is string
+        && (data.documents.idImagePath == null || data.documents.idImagePath is string)
+        && (data.documents.idImageUrl == null || data.documents.idImageUrl is string);
+    }
+
+    function ownerCanUpdateDriverApplication() {
+      return signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.requestedRole == resource.data.requestedRole
+        && request.resource.data.submittedAt == resource.data.submittedAt
+        && request.resource.data.reviewNotes == resource.data.reviewNotes
         && request.resource.data.keys().hasOnly([
           'uid',
-          'role',
+          'requestedRole',
+          'status',
+          'submittedAt',
+          'updatedAt',
+          'documents',
+          'reviewNotes'
+        ])
+        && validDriverApplicationDocumentShape(request.resource.data, request.auth.uid)
+        && (
+          (
+            resource.data.status == 'pending'
+            && request.resource.data.status == 'pending'
+          )
+          || (
+            resource.data.status == 'needs_resubmission'
+            && request.resource.data.status == 'pending'
+          )
+        );
+    }
+
+    function adminCanUpdateDriverApplication() {
+      return request.resource.data.uid == resource.data.uid
+        && request.resource.data.requestedRole == resource.data.requestedRole
+        && request.resource.data.submittedAt == resource.data.submittedAt
+        && request.resource.data.status in ['pending', 'approved', 'rejected', 'needs_resubmission']
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'requestedRole',
+          'status',
+          'submittedAt',
+          'updatedAt',
+          'documents',
+          'reviewNotes'
+        ])
+        && validDriverApplicationDocumentShape(request.resource.data, resource.data.uid);
+    }
+
+    function ownerCanRequestPendingDriverRole() {
+      return request.resource.data.approvedRoles == resource.data.approvedRoles
+        && request.resource.data.primaryRole == resource.data.primaryRole
+        && resource.data.approvedRoles is list
+        && resource.data.approvedRoles.hasOnly(['commuter'])
+        && resource.data.pendingRoleRequests is list
+        && resource.data.pendingRoleRequests.size() == 0
+        && request.resource.data.pendingRoleRequests is list
+        && request.resource.data.pendingRoleRequests.size() == 1
+        && request.resource.data.pendingRoleRequests.hasOnly(['driver']);
+    }
+
+    match /users/{uid} {
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'uid',
           'email',
           'displayName',
           'phoneNumber',
+          'approvedRoles',
+          'pendingRoleRequests',
+          'primaryRole',
           'createdAt',
           'updatedAt'
-        ]);
+        ])
+        && validPublicUserProfile();
 
       allow read: if isOwner(uid) || isAdmin();
 
-      allow update: if (isOwner(uid) || isAdmin())
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.createdAt == resource.data.createdAt
+      allow update: if isAdmin()
+        || (
+          isOwner(uid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'email',
+              'displayName',
+              'phoneNumber',
+              'updatedAt'
+            ])
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'displayName',
+                'phoneNumber',
+                'updatedAt',
+                'pendingRoleRequests'
+              ])
+              && ownerCanRequestPendingDriverRole()
+            )
+          )
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    match /roleApplications/{applicationId} {
+      allow create: if signedIn()
+        && validDriverApplicationPayload(request.resource.data, request.auth.uid)
         && request.resource.data.keys().hasOnly([
           'uid',
-          'role',
-          'email',
-          'displayName',
-          'phoneNumber',
-          'createdAt',
-          'updatedAt'
+          'requestedRole',
+          'status',
+          'submittedAt',
+          'updatedAt',
+          'documents',
+          'reviewNotes'
         ]);
+
+      allow read: if (signedIn() && resource.data.uid == request.auth.uid) || isAdmin();
+
+      allow update: if isAdmin()
+        && adminCanUpdateDriverApplication()
+        || ownerCanUpdateDriverApplication();
 
       allow delete: if isAdmin();
     }

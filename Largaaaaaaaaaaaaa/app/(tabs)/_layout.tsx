@@ -28,12 +28,6 @@ export default function TabLayout() {
         }}
       />
       <Stack.Screen
-        name="roleselection"
-        options={{
-          title: 'Role Selection',
-        }}
-      />
-      <Stack.Screen
         name="two"
         options={{
           title: 'Two',

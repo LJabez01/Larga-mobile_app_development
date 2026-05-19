@@ -1,14 +1,20 @@
 // Auth Contracts - defines the shared types and service interface for app authentication.
-import type { AppMode } from '@/services/runtime/app-mode';
+import type { AppRole, AppRoute, RegisterableRole, SelfServiceRole } from '@/lib/domain/auth';
 
-export type AppRole = 'commuter' | 'driver' | 'admin';
+export type { AppRole, AppRoute, RegisterableRole, SelfServiceRole } from '@/lib/domain/auth';
 
 export interface AppSession {
   userId: string;
-  role: AppRole;
+  role: AppRole | null;
   displayName: string;
   email: string;
-  mode: AppMode;
+  approvedRoles: AppRole[];
+  pendingRoles: SelfServiceRole[];
+  primaryRole: AppRole | null;
+  availableRoleChoices: AppRole[];
+  defaultPostLoginRoute: AppRoute;
+  needsRoleSelection: boolean;
+  hasPendingAccessOnly: boolean;
 }
 
 export interface AuthSnapshot {
@@ -25,13 +31,16 @@ export interface RegisterInput {
   email: string;
   password: string;
   displayName: string;
+  requestedRole: RegisterableRole;
+  selectedVehicle?: string;
+  plateNumber?: string;
+  licenseNumber?: string;
+  idImageUri?: string | null;
 }
 
 export interface PasswordResetInput {
   email: string;
 }
-
-export type DemoRole = Extract<AppRole, 'commuter' | 'driver'>;
 
 export interface AuthService {
   getSession(): Promise<AuthSnapshot>;
@@ -40,6 +49,5 @@ export interface AuthService {
   register(input: RegisterInput): Promise<AuthSnapshot>;
   requestPasswordReset(input: PasswordResetInput): Promise<void>;
   signOut(): Promise<AuthSnapshot>;
-  startDemoSession(role: DemoRole): Promise<AuthSnapshot>;
   reset(): Promise<void>;
 }

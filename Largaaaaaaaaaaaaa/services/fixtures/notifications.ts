@@ -1,4 +1,4 @@
-// Notification Fixtures - provide mock notifications for commuter and driver flows.
+// Notification Fixtures - provide baseline notifications for commuter and driver flows.
 import type { NotificationItem } from '@/services/contracts/notifications';
 
 export const COMMUTER_NOTIFICATIONS: NotificationItem[] = [
@@ -6,7 +6,7 @@ export const COMMUTER_NOTIFICATIONS: NotificationItem[] = [
     id: 'commuter-1',
     section: 'Today',
     title: 'Route ready',
-    message: 'Your selected route is live in mock mode for UI testing.',
+    message: 'Your selected route is active and ready for live trip visibility.',
     timestamp: '2 min ago',
     type: 'success',
     read: false,
@@ -15,7 +15,7 @@ export const COMMUTER_NOTIFICATIONS: NotificationItem[] = [
     id: 'commuter-2',
     section: 'Earlier',
     title: 'Vehicle approaching',
-    message: 'A mock vehicle is moving closer to your selected route.',
+    message: 'A vehicle is moving closer to your selected route.',
     timestamp: '45 min ago',
     type: 'info',
     read: true,
@@ -26,8 +26,8 @@ export const DRIVER_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'driver-1',
     section: 'Today',
-    title: 'Demo trip control',
-    message: 'Use Start Trip to simulate a live driver session for UI testing.',
+    title: 'Trip control ready',
+    message: 'Use Start Trip when you are ready to begin broadcasting your live route session.',
     timestamp: '1 min ago',
     type: 'warning',
     read: false,
@@ -35,8 +35,8 @@ export const DRIVER_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'driver-2',
     section: 'Earlier',
-    title: 'Mock route selected',
-    message: 'Your active route and commuter visibility are driven by shared mock state.',
+    title: 'Route selected',
+    message: 'Your active route controls the commuter visibility for your current live session.',
     timestamp: '1 hr ago',
     type: 'info',
     read: true,

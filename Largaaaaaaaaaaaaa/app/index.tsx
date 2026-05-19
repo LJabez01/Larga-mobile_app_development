@@ -1,6 +1,6 @@
 // Index Screen - redirects users into the correct auth or app route.
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { Redirect } from 'expo-router';
+import { Redirect, type Href } from 'expo-router';
 
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 
@@ -16,7 +16,7 @@ export default function RootIndex() {
   }
 
   if (status === 'signedIn' && session) {
-    return <Redirect href={getDefaultAppPath(session.role)} />;
+    return <Redirect href={getDefaultAppPath(session) as Href} />;
   }
 
   return <Redirect href="/login" />;

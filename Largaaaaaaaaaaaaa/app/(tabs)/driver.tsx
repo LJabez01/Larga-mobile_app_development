@@ -1,6 +1,6 @@
 // Driver Tab Screen - mounts the driver map experience.
 import { ActivityIndicator, View } from 'react-native';
-import { Redirect } from 'expo-router';
+import { Redirect, type Href } from 'expo-router';
 
 import DriverMapScreen from '@/components/map/driver/drivermapscreen';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
@@ -20,8 +20,12 @@ export default function DriverScreen() {
     return <Redirect href="/login" />;
   }
 
-  if (session.role !== 'driver') {
-    return <Redirect href={getDefaultAppPath(session.role)} />;
+  if (session.needsRoleSelection && session.role === null) {
+    return <Redirect href="/role-selection" />;
+  }
+
+  if (!session.approvedRoles.includes('driver')) {
+    return <Redirect href={getDefaultAppPath(session) as Href} />;
   }
 
   return <DriverMapScreen />;
