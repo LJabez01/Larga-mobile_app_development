@@ -1,14 +1,13 @@
 // Commuter Map Screen - renders the route-aware commuter map and overlays.
-import { useMemo, useRef, useState } from 'react';
-import { View, TouchableOpacity, TextInput, Text, Image, FlatList, Keyboard, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, TouchableOpacity, TextInput, Text, FlatList, Keyboard, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { commuterStyles as styles } from './commuter-map.styles';
 import {
   getMapbox,
-  BUS_ICON,
-  JEEP_ICON,
+  ensureMapboxConfigured,
   MAP_STYLE_URL,
   INITIAL_CENTER_COORDINATE,
   STA_MARIA_BOUNDS,
@@ -16,6 +15,7 @@ import {
   MAP_PITCH,
 } from '../shared/mapbox.utils';
 import MapFallback from '../shared/MapFallback';
+import MapMarkerIcon from '../shared/MapMarkerIcon';
 import SettingsDrawer from '../../settings';
 import RideInfoPanel from '../RideInfoPanel';
 import { useLiveData } from '@/components/providers/LiveDataProvider';
@@ -46,10 +46,40 @@ export default function CommuterMapScreen() {
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [hasMapLoadingError, setHasMapLoadingError] = useState(false);
+  const [isMapboxReady, setIsMapboxReady] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
   const router = useRouter();
   const { snapshot } = useLiveData();
   const Mapbox = getMapbox();
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!Mapbox) {
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    ensureMapboxConfigured().then((configuredMapbox) => {
+      if (isCancelled) {
+        return;
+      }
+
+      if (!configuredMapbox) {
+        setHasMapLoadingError(true);
+        return;
+      }
+
+      setIsMapboxReady(true);
+      setHasMapLoadingError(false);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [Mapbox]);
 
   const filteredRoutes = snapshot.routes.filter((route) => fuzzyMatch(searchText, route.label));
   const visibleVehicles = selectedRouteId
@@ -76,6 +106,25 @@ export default function CommuterMapScreen() {
   }
 
   if (!Mapbox) return <MapFallback />;
+  if (!isMapboxReady && !hasMapLoadingError) {
+    return (
+      <MapFallback
+        eyebrow="Map Setup"
+        title="Preparing the commuter map"
+        text="Configuring the native map renderer for this device."
+        loading
+      />
+    );
+  }
+  if (hasMapLoadingError) {
+    return (
+      <MapFallback
+        eyebrow="Map Load Error"
+        title="Unable to load the commuter map"
+        text="The map style could not be loaded on this device. Restart the app after the latest build installs, or try again once the network is stable."
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -128,6 +177,15 @@ export default function CommuterMapScreen() {
         logoEnabled={false}
         compassEnabled={false}
         attributionEnabled={false}
+        onWillStartLoadingMap={() => {
+          setHasMapLoadingError(false);
+        }}
+        onDidFinishLoadingStyle={() => {
+          setHasMapLoadingError(false);
+        }}
+        onMapLoadingError={() => {
+          setHasMapLoadingError(true);
+        }}
       >
         <Mapbox.Camera
           zoomLevel={MAP_ZOOM.initial}
@@ -155,8 +213,7 @@ export default function CommuterMapScreen() {
               accessibilityRole="button"
               accessibilityLabel={`View ${vehicle.type} details`}
             >
-              <View style={styles.vehicleComingRing} />
-              <Image source={vehicle.type === 'bus' ? BUS_ICON : JEEP_ICON} style={styles.mapVehicleIcon} />
+              <MapMarkerIcon kind={vehicle.type === 'bus' ? 'bus' : 'jeep'} size="md" active={selectedVehicle === vehicle.type} />
             </TouchableOpacity>
           </Mapbox.MarkerView>
         ))}

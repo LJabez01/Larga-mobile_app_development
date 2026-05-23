@@ -16,12 +16,14 @@ FIREBASE_SERVICE_ACCOUNT_PATH="C:\\\\keys\\\\service.json"
 
 test('buildTransportSeedPayload serializes route coordinates as firestore-safe objects', () => {
   const payload = buildTransportSeedPayload();
-  const routeCoordinates = payload.routes[0]?.data.coordinates as Array<Record<string, unknown>> | undefined;
+  const firstRoute = payload.routes[0];
+  const routeCoordinates = firstRoute?.data.coordinates as Array<Record<string, unknown>> | undefined;
   const firstRouteCoordinate = routeCoordinates?.[0];
 
   assert.ok(firstRouteCoordinate);
   assert.equal(typeof firstRouteCoordinate.longitude, 'number');
   assert.equal(typeof firstRouteCoordinate.latitude, 'number');
+  assert.equal('waypoints' in (firstRoute?.data ?? {}), false);
 });
 
 test('resolveTransportSeedConfig supports emulator seeding without service account path', () => {

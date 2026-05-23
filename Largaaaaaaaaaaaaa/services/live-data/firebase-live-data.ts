@@ -15,9 +15,38 @@ import {
 
 import { auth, db } from '@/firebase';
 import { isAppRole, normalizeApprovedRoles } from '@/lib/domain/auth';
-import { createEmptyDriverSelection, deserializeRouteCoordinates, resolveRouteForTerminals, type DriverSelectionState, type RouteRecord, type TerminalOption, type VehicleType } from '@/lib/domain/transport';
-import type { ActiveTripState, LiveDataService, LiveDataSnapshot, PublishDriverLocationInput, VehicleMarker } from '@/services/contracts/live-data';
+import {
+  buildDriverGuidancePathPlan,
+  buildLiveDriverGuidanceState,
+  buildRouteUnavailableGuidanceState,
+  buildStoredRouteFallbackGuidanceState,
+  buildReverseDriverSelection,
+  createDriverSelection,
+  createEmptyDriverSelection,
+  deserializeRouteCoordinates,
+  shouldRefreshDriverGuidance,
+  isVehicleLocationFresh,
+  resolveRouteForTerminals,
+  type DriverGuidanceState,
+  type DriverSelectionState,
+  type DriverLocationStatus,
+  type RouteRecord,
+  type RouteCoordinate,
+  type TerminalOption,
+  type VehicleType,
+} from '@/lib/domain/transport';
+import type {
+  ActiveTripState,
+  DriverTerminalSelectionInput,
+  LiveDataService,
+  LiveDataSnapshot,
+  PublishDriverLocationInput,
+  StartTripInput,
+  VehicleMarker,
+} from '@/services/contracts/live-data';
 import { COMMUTER_NOTIFICATIONS, DRIVER_NOTIFICATIONS } from '@/services/fixtures/notifications';
+import { requestDriverGuidanceRoute } from '@/services/live-data/mapbox-guidance';
+import { isSelectableTerminalId } from '@/lib/seed/transport-location-inventory';
 
 interface FirebaseUserDocument {
   role?: unknown;
@@ -64,6 +93,13 @@ interface FirestoreVehicleLocationRecord {
   updatedAt?: unknown;
 }
 
+interface ParsedVehicleLocation {
+  driverId: string;
+  marker: VehicleMarker;
+  recordedAt: string;
+  isFresh: boolean;
+}
+
 const listeners = new Set<(snapshot: LiveDataSnapshot) => void>();
 const sharedNotifications = {
   commuter: COMMUTER_NOTIFICATIONS.map((notification) => ({ ...notification })),
@@ -77,7 +113,12 @@ let currentTerminals: TerminalOption[] = [];
 let currentRoutes: RouteRecord[] = [];
 let currentVehicles: VehicleMarker[] = [];
 let currentActiveTrip: ActiveTripState | null = null;
+let currentDriverGuidance: DriverGuidanceState | null = null;
 let currentDriverSelection: DriverSelectionState = createEmptyDriverSelection();
+let currentDriverLastLocationRecordedAt: string | null = null;
+let currentDriverHasFreshLocation = false;
+let currentDriverLocationStatus: DriverLocationStatus = 'idle';
+let currentDriverGuidanceRequestId = 0;
 let currentSnapshot: LiveDataSnapshot = buildSnapshot();
 
 // Snapshot Builder - creates a fresh immutable snapshot for provider consumers.
@@ -85,6 +126,20 @@ function cloneVehicle(vehicle: VehicleMarker): VehicleMarker {
   return {
     ...vehicle,
     coordinate: [...vehicle.coordinate] as [number, number],
+  };
+}
+
+function cloneDriverGuidance(guidance: DriverGuidanceState): DriverGuidanceState {
+  return {
+    ...guidance,
+    originCoordinate: [...guidance.originCoordinate] as [number, number],
+    destinationCoordinate: [...guidance.destinationCoordinate] as [number, number],
+    routeCoordinates: guidance.routeCoordinates
+      ? guidance.routeCoordinates.map((coordinate) => [...coordinate] as [number, number])
+      : null,
+    connectorCoordinates: guidance.connectorCoordinates
+      ? guidance.connectorCoordinates.map((coordinate) => [...coordinate] as [number, number])
+      : null,
   };
 }
 
@@ -99,6 +154,7 @@ function buildSnapshot(): LiveDataSnapshot {
       coordinates: route.coordinates.map((coordinate) => [...coordinate] as [number, number]),
     })),
     activeTrip: currentActiveTrip ? { ...currentActiveTrip } : null,
+    driverGuidance: currentDriverGuidance ? cloneDriverGuidance(currentDriverGuidance) : null,
     vehicles: currentVehicles.map(cloneVehicle),
     driverSelection: { ...currentDriverSelection },
     notificationsByRole: {
@@ -118,6 +174,8 @@ function syncDriverSelectionFromCurrentState() {
     currentDriverSelection = {
       originTerminalId: currentActiveTrip.originTerminalId,
       destinationTerminalId: currentActiveTrip.destinationTerminalId,
+      originLocationId: currentActiveTrip.originLocationId,
+      destinationLocationId: currentActiveTrip.destinationLocationId,
       resolvedRouteId: currentActiveTrip.routeId,
       resolvedRouteLabel: currentActiveTrip.routeLabel,
     };
@@ -137,11 +195,144 @@ function syncDriverSelectionFromCurrentState() {
   };
 }
 
+function syncActiveTripLocationState() {
+  if (!currentActiveTrip) {
+    currentDriverLocationStatus = 'idle';
+    return;
+  }
+
+  currentDriverLocationStatus = !currentDriverLastLocationRecordedAt
+    ? 'missing'
+    : (currentDriverHasFreshLocation ? 'live' : 'stale');
+
+  currentActiveTrip = {
+    ...currentActiveTrip,
+    lastLocationRecordedAt: currentDriverLastLocationRecordedAt,
+    locationStatus: currentDriverLocationStatus,
+  };
+}
+
 function updateSnapshot() {
   syncDriverSelectionFromCurrentState();
+  syncActiveTripLocationState();
   currentSnapshot = buildSnapshot();
   notify();
   return currentSnapshot;
+}
+
+function getActiveVehicleCoordinate() {
+  if (!currentActiveTrip) {
+    return null;
+  }
+
+  const activeTrip = currentActiveTrip;
+  const activeVehicle = currentVehicles.find((vehicle) => vehicle.id === activeTrip.vehicleId);
+
+  return activeVehicle?.coordinate ?? null;
+}
+
+function getDestinationCoordinate(destinationTerminalId: string) {
+  const destinationTerminal = currentTerminals.find((terminal) => terminal.id === destinationTerminalId);
+
+  return destinationTerminal?.coordinate ?? null;
+}
+
+async function refreshDriverGuidanceForCurrentTrip(
+  route: RouteRecord,
+  currentCoordinate: RouteCoordinate,
+  force = false,
+) {
+  const destinationCoordinate = getDestinationCoordinate(route.destinationTerminalId);
+
+  if (!destinationCoordinate) {
+    currentDriverGuidance = buildRouteUnavailableGuidanceState(
+      currentCoordinate,
+      route.coordinates[route.coordinates.length - 1] ?? currentCoordinate,
+      route.id,
+      new Date().toISOString(),
+      'Destination guidance is unavailable until route terminals finish loading.',
+    );
+    return updateSnapshot();
+  }
+
+  if (!force && !shouldRefreshDriverGuidance({
+    guidance: currentDriverGuidance,
+    currentCoordinate,
+    destinationCoordinate,
+    sourceRouteId: route.id,
+  })) {
+    return currentSnapshot;
+  }
+
+  const requestId = ++currentDriverGuidanceRequestId;
+  const updatedAt = new Date().toISOString();
+  const currentProgressSegmentIndex = currentDriverGuidance?.sourceRouteId === route.id
+    ? currentDriverGuidance.routeProgressSegmentIndex
+    : null;
+
+  try {
+    const guidanceRoute = await requestDriverGuidanceRoute({
+      currentCoordinate,
+      destinationCoordinate,
+      storedRouteCoordinates: route.coordinates,
+      currentProgressSegmentIndex,
+    });
+
+    if (requestId !== currentDriverGuidanceRequestId) {
+      return currentSnapshot;
+    }
+
+    currentDriverGuidance = buildLiveDriverGuidanceState(
+      currentCoordinate,
+      destinationCoordinate,
+      guidanceRoute.routeCoordinates,
+      route.id,
+      updatedAt,
+      guidanceRoute.routeProgressSegmentIndex,
+      guidanceRoute.connectorCoordinates,
+    );
+  } catch {
+    if (requestId !== currentDriverGuidanceRequestId) {
+      return currentSnapshot;
+    }
+
+    const guidancePlan = buildDriverGuidancePathPlan(
+      currentCoordinate,
+      route.coordinates,
+      destinationCoordinate,
+      currentProgressSegmentIndex,
+    );
+    currentDriverGuidance = buildStoredRouteFallbackGuidanceState(
+      currentCoordinate,
+      destinationCoordinate,
+      guidancePlan.remainingRouteCoordinates,
+      route.id,
+      updatedAt,
+      'Live road guidance unavailable. Showing the remaining assigned route only.',
+      guidancePlan.rejoinSegmentIndex,
+    );
+  }
+
+  return updateSnapshot();
+}
+
+async function maybeRefreshDriverGuidanceFromCurrentState(force = false) {
+  if (!currentActiveTrip) {
+    if (currentDriverGuidance) {
+      currentDriverGuidance = null;
+      updateSnapshot();
+    }
+    return currentSnapshot;
+  }
+
+  const currentCoordinate = getActiveVehicleCoordinate();
+  const route = currentRoutes.find((item) => item.id === currentActiveTrip?.routeId) ?? null;
+
+  if (!currentCoordinate || !route) {
+    return currentSnapshot;
+  }
+
+  return refreshDriverGuidanceForCurrentTrip(route, currentCoordinate, force);
 }
 
 // Operational Reset - clears route, trip, and vehicle state when auth context changes.
@@ -150,7 +341,11 @@ function resetOperationalState() {
   currentRoutes = [];
   currentVehicles = [];
   currentActiveTrip = null;
+  currentDriverGuidance = null;
   currentDriverSelection = createEmptyDriverSelection();
+  currentDriverLastLocationRecordedAt = null;
+  currentDriverHasFreshLocation = false;
+  currentDriverLocationStatus = 'idle';
   updateSnapshot();
 }
 
@@ -221,8 +416,11 @@ function buildVehicleMarkerFromRoute(
   latitude: number,
   longitude: number,
   speed: number | null,
+  recordedAt: string,
 ): VehicleMarker {
-  const speedKph = typeof speed === 'number' && Number.isFinite(speed) ? Math.max(speed, 0) : null;
+  const speedKph = typeof speed === 'number' && Number.isFinite(speed)
+    ? Math.max(speed * 3.6, 0)
+    : null;
 
   return {
     id: driverId,
@@ -230,8 +428,10 @@ function buildVehicleMarkerFromRoute(
     coordinate: [longitude, latitude],
     routeId: route.id,
     routeLabel: route.label,
+    recordedAt,
     fare: route.vehicleType === 'bus' ? '13' : '15',
-    speed: speedKph === null ? 'Unavailable' : `${Math.round(speedKph)} KM / Hour`,
+    speed: speedKph === null ? 'Unavailable' : `${Math.round(speedKph)} km/h`,
+    speedKph,
     distance: 'Live route',
     eta: speedKph === null ? 'Updating...' : 'Live',
   };
@@ -255,17 +455,22 @@ function parseActiveTrip(docId: string, data: FirestoreActiveTripRecord): Active
     routeLabel: route?.label ?? data.routeId,
     originTerminalId: data.originTerminalId,
     destinationTerminalId: data.destinationTerminalId,
+    originLocationId: null,
+    destinationLocationId: null,
     vehicleId: docId,
     startedAt: data.startedAt,
+    lastLocationRecordedAt: currentDriverLastLocationRecordedAt,
+    locationStatus: currentDriverLocationStatus,
   };
 }
 
-function parseVehicleLocation(data: FirestoreVehicleLocationRecord): VehicleMarker | null {
+function parseVehicleLocation(data: FirestoreVehicleLocationRecord): ParsedVehicleLocation | null {
   if (
     typeof data.driverId !== 'string'
     || typeof data.routeId !== 'string'
     || typeof data.latitude !== 'number'
     || typeof data.longitude !== 'number'
+    || typeof data.recordedAt !== 'string'
   ) {
     return null;
   }
@@ -277,14 +482,21 @@ function parseVehicleLocation(data: FirestoreVehicleLocationRecord): VehicleMark
   }
 
   const speed = typeof data.speed === 'number' ? data.speed : null;
+  const isFresh = isVehicleLocationFresh(data.recordedAt);
 
-  return buildVehicleMarkerFromRoute(
-    data.driverId,
-    route,
-    data.latitude,
-    data.longitude,
-    speed,
-  );
+  return {
+    driverId: data.driverId,
+    marker: buildVehicleMarkerFromRoute(
+      data.driverId,
+      route,
+      data.latitude,
+      data.longitude,
+      speed,
+      data.recordedAt,
+    ),
+    recordedAt: data.recordedAt,
+    isFresh,
+  };
 }
 
 // Firestore Subscriptions - binds the active auth user to the live Firestore listeners.
@@ -306,6 +518,7 @@ function bindFirestoreListeners(uid: string | null) {
           .filter((terminal): terminal is TerminalOption => Boolean(terminal))
           .sort((left, right) => left.label.localeCompare(right.label));
         updateSnapshot();
+        void maybeRefreshDriverGuidanceFromCurrentState();
       },
     ),
     onSnapshot(
@@ -316,19 +529,31 @@ function bindFirestoreListeners(uid: string | null) {
           .filter((route): route is RouteRecord => Boolean(route))
           .sort((left, right) => left.label.localeCompare(right.label));
         updateSnapshot();
+        void maybeRefreshDriverGuidanceFromCurrentState();
       },
     ),
     onSnapshot(collection(db, 'vehicleLocations'), (snapshot) => {
-      currentVehicles = snapshot.docs
+      const parsedLocations = snapshot.docs
         .map((document) => parseVehicleLocation(document.data() as FirestoreVehicleLocationRecord))
-        .filter((vehicle): vehicle is VehicleMarker => Boolean(vehicle));
+        .filter((vehicle): vehicle is ParsedVehicleLocation => Boolean(vehicle));
+
+      currentVehicles = parsedLocations
+        .filter((vehicle) => vehicle.isFresh)
+        .map((vehicle) => vehicle.marker);
+
+      const driverLocation = parsedLocations.find((vehicle) => vehicle.driverId === uid) ?? null;
+      currentDriverLastLocationRecordedAt = driverLocation?.recordedAt ?? null;
+      currentDriverHasFreshLocation = driverLocation?.isFresh ?? false;
+
       updateSnapshot();
+      void maybeRefreshDriverGuidanceFromCurrentState();
     }),
     onSnapshot(doc(db, 'activeTrips', uid), (snapshot) => {
       currentActiveTrip = snapshot.exists()
         ? parseActiveTrip(snapshot.id, snapshot.data() as FirestoreActiveTripRecord)
         : null;
       updateSnapshot();
+      void maybeRefreshDriverGuidanceFromCurrentState(snapshot.exists());
     }),
   ];
 }
@@ -407,8 +632,19 @@ async function appendTripEvent(
   });
 }
 
-async function writeInitialVehicleLocation(driverId: string, route: RouteRecord, startedAt: string) {
-  const [longitude, latitude] = route.coordinates[0];
+async function writeInitialVehicleLocation(
+  driverId: string,
+  route: RouteRecord,
+  startedAt: string,
+  initialLocation?: StartTripInput,
+) {
+  const fallbackCoordinate = route.coordinates[0];
+  const longitude = initialLocation?.longitude ?? fallbackCoordinate[0];
+  const latitude = initialLocation?.latitude ?? fallbackCoordinate[1];
+  const heading = initialLocation?.heading ?? 0;
+  const speed = initialLocation?.speed ?? 0;
+  const accuracy = initialLocation?.accuracy ?? 0;
+  const recordedAt = initialLocation?.recordedAt ?? startedAt;
 
   await setDoc(doc(db, 'vehicleLocations', driverId), {
     driverId,
@@ -416,17 +652,20 @@ async function writeInitialVehicleLocation(driverId: string, route: RouteRecord,
     routeId: route.id,
     latitude,
     longitude,
-    heading: 0,
-    speed: 0,
-    accuracy: 0,
-    recordedAt: startedAt,
-    updatedAt: startedAt,
+    heading,
+    speed,
+    accuracy,
+    recordedAt,
+    updatedAt: recordedAt,
   });
 
   currentVehicles = [
     ...currentVehicles.filter((vehicle) => vehicle.id !== driverId),
-    buildVehicleMarkerFromRoute(driverId, route, latitude, longitude, 0),
+    buildVehicleMarkerFromRoute(driverId, route, latitude, longitude, speed, recordedAt),
   ];
+  currentDriverLastLocationRecordedAt = recordedAt;
+  currentDriverHasFreshLocation = true;
+  currentDriverLocationStatus = 'live';
 }
 
 // Firebase Live Data Adapter - exposes the shared live-data contract using Firestore state.
@@ -437,6 +676,8 @@ export const firebaseLiveDataService: LiveDataService = {
     if (auth.currentUser && currentUserId !== auth.currentUser.uid) {
       bindFirestoreListeners(auth.currentUser.uid);
     }
+
+    await maybeRefreshDriverGuidanceFromCurrentState();
 
     return updateSnapshot();
   },
@@ -451,7 +692,12 @@ export const firebaseLiveDataService: LiveDataService = {
     };
   },
 
-  async selectDriverTerminals(originTerminalId: string | null, destinationTerminalId: string | null) {
+  async selectDriverTerminals({
+    originTerminalId,
+    destinationTerminalId,
+    originLocationId = null,
+    destinationLocationId = null,
+  }: DriverTerminalSelectionInput) {
     if (
       currentActiveTrip
       && (
@@ -462,17 +708,27 @@ export const firebaseLiveDataService: LiveDataService = {
       throw new Error('End the current trip before changing the selected terminals.');
     }
 
+    if (originTerminalId && !isSelectableTerminalId(originTerminalId)) {
+      throw new Error('Only supported origin terminals can be selected right now.');
+    }
+
+    if (destinationTerminalId && !isSelectableTerminalId(destinationTerminalId)) {
+      throw new Error('Only supported destination terminals can be selected right now.');
+    }
+
     currentDriverSelection = {
-      originTerminalId,
-      destinationTerminalId,
-      resolvedRouteId: null,
-      resolvedRouteLabel: null,
+      ...createDriverSelection(
+        originTerminalId,
+        destinationTerminalId,
+        originLocationId,
+        destinationLocationId,
+      ),
     };
 
     return updateSnapshot();
   },
 
-  async startTrip() {
+  async startTrip(input) {
     const user = await requireSignedInUser();
     await requireDriverRole(user.uid);
 
@@ -500,7 +756,7 @@ export const firebaseLiveDataService: LiveDataService = {
     };
 
     await setDoc(tripRef, tripPayload);
-    await writeInitialVehicleLocation(user.uid, route, startedAt);
+    await writeInitialVehicleLocation(user.uid, route, startedAt, input);
     await appendTripEvent(user.uid, route.id, 'trip_started', {
       originTerminalId: route.originTerminalId,
       destinationTerminalId: route.destinationTerminalId,
@@ -512,11 +768,21 @@ export const firebaseLiveDataService: LiveDataService = {
       routeLabel: route.label,
       originTerminalId: route.originTerminalId,
       destinationTerminalId: route.destinationTerminalId,
+      originLocationId: currentDriverSelection.originLocationId,
+      destinationLocationId: currentDriverSelection.destinationLocationId,
       vehicleId: user.uid,
       startedAt,
+      lastLocationRecordedAt: startedAt,
+      locationStatus: 'live',
     };
 
-    return updateSnapshot();
+    updateSnapshot();
+
+    return refreshDriverGuidanceForCurrentTrip(
+      route,
+      [input?.longitude ?? route.coordinates[0][0], input?.latitude ?? route.coordinates[0][1]],
+      true,
+    );
   },
 
   async endTrip() {
@@ -543,8 +809,25 @@ export const firebaseLiveDataService: LiveDataService = {
     await deleteDoc(doc(db, 'vehicleLocations', user.uid));
     await deleteDoc(tripRef);
 
+    const endedOriginTerminalId = currentActiveTrip?.originTerminalId
+      ?? (typeof tripData.originTerminalId === 'string' ? tripData.originTerminalId : null);
+    const endedDestinationTerminalId = currentActiveTrip?.destinationTerminalId
+      ?? (typeof tripData.destinationTerminalId === 'string' ? tripData.destinationTerminalId : null);
+
+    currentDriverSelection = endedOriginTerminalId && endedDestinationTerminalId
+      ? buildReverseDriverSelection(
+        endedOriginTerminalId,
+        endedDestinationTerminalId,
+        currentActiveTrip?.originLocationId ?? null,
+        currentActiveTrip?.destinationLocationId ?? null,
+      )
+      : createEmptyDriverSelection();
     currentActiveTrip = null;
+    currentDriverGuidance = null;
     currentVehicles = currentVehicles.filter((vehicle) => vehicle.id !== user.uid);
+    currentDriverLastLocationRecordedAt = null;
+    currentDriverHasFreshLocation = false;
+    currentDriverLocationStatus = 'idle';
 
     return updateSnapshot();
   },
@@ -595,10 +878,19 @@ export const firebaseLiveDataService: LiveDataService = {
         input.latitude,
         input.longitude,
         input.speed ?? null,
+        recordedAt,
       ),
     ];
+    currentDriverLastLocationRecordedAt = recordedAt;
+    currentDriverHasFreshLocation = true;
+    currentDriverLocationStatus = 'live';
 
-    return updateSnapshot();
+    updateSnapshot();
+
+    return refreshDriverGuidanceForCurrentTrip(
+      route,
+      [input.longitude, input.latitude],
+    );
   },
 
   async reset() {

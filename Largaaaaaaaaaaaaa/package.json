@@ -3,8 +3,10 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
+    "postinstall": "node scripts/patch-native-deps.mjs",
     "start": "expo start",
-    "android": "expo run:android",
+    "android": "node scripts/run-android.mjs",
+    "android:raw": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
@@ -13,6 +15,7 @@
     "seed:foundation:dry": "node scripts/seed-foundation.mjs --dry-run",
     "seed:transport": "node --import tsx scripts/seed-transport-catalog.ts",
     "seed:transport:apply": "node --import tsx scripts/seed-transport-catalog.ts --apply",
+    "seed:transport:refresh-geometry": "node --import tsx scripts/refresh-transport-route-geometries.ts",
     "seed:admin": "node --import tsx scripts/seed-admin-account.ts",
     "seed:admin:apply": "node --import tsx scripts/seed-admin-account.ts --apply",
     "rules:smoke": "npx -y firebase-tools@latest emulators:exec --only auth,firestore \"node --import tsx scripts/rules-smoke.ts\""
@@ -29,6 +32,7 @@
     "expo-image-picker": "~17.0.11",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.12",
+    "expo-location": "~19.0.8",
     "expo-notifications": "~0.32.17",
     "expo-router": "~6.0.23",
     "expo-splash-screen": "~31.0.13",

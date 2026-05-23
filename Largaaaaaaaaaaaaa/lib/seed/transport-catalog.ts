@@ -1,123 +1,73 @@
-// Transport Catalog - defines the coded source of truth for terminals and route records.
+// Transport Catalog - defines the coded route-truth subset for terminals and route records.
+// Use TRANSPORT_LOCATION_INVENTORY_SEED for the broader Sta. Maria terminal and route-point inventory.
 import type { RouteRecord, TerminalOption } from '@/lib/domain/transport';
 
-interface BaseRouteSeed {
-  id: string;
-  label: string;
-  originTerminalId: string;
-  destinationTerminalId: string;
-  vehicleType: RouteRecord['vehicleType'];
-  isActive: boolean;
-  coordinates: RouteRecord['coordinates'];
-}
+import { GENERATED_ROUTE_GEOMETRIES } from '@/lib/seed/generated/transport-route-geometries';
+import {
+  BASE_ROUTE_TEMPLATE_SEED,
+  buildReverseRouteId,
+  buildReverseRouteLabel,
+  reverseRouteCoordinates,
+} from '@/lib/seed/transport-route-templates';
 
 export const TERMINAL_SEED: TerminalOption[] = [
   {
     id: 'sta-maria-bayan',
     label: 'Sta. Maria Bayan Terminal',
-    coordinate: [120.9588, 14.8189],
+    coordinate: [120.9639, 14.8234],
     isActive: true,
   },
   {
     id: 'norzagaray-terminal',
     label: 'Norzagaray Terminal',
-    coordinate: [121.0445, 14.9104],
+    coordinate: [121.0458, 14.9107],
     isActive: true,
   },
   {
     id: 'halang-terminal',
     label: 'Halang Terminal',
-    coordinate: [120.9978, 14.8459],
+    coordinate: [121.0129, 14.8537],
     isActive: true,
   },
   {
     id: 'san-jose-terminal',
     label: 'San Jose Terminal',
-    coordinate: [121.0142, 14.8741],
+    coordinate: [120.9975, 14.8376],
     isActive: true,
   },
 ];
 
-const BASE_ROUTE_SEED: BaseRouteSeed[] = [
-  {
-    id: 'sta-maria-bayan-norzagaray',
-    label: 'Sta. Maria Bayan - Norzagaray',
-    originTerminalId: 'sta-maria-bayan',
-    destinationTerminalId: 'norzagaray-terminal',
-    vehicleType: 'jeep',
-    isActive: true,
-    coordinates: [
-      [120.9588, 14.8189],
-      [120.9725, 14.8381],
-      [120.9964, 14.8627],
-      [121.0188, 14.8862],
-      [121.0445, 14.9104],
-    ],
-  },
-  {
-    id: 'sta-maria-bayan-halang',
-    label: 'Sta. Maria Bayan - Halang',
-    originTerminalId: 'sta-maria-bayan',
-    destinationTerminalId: 'halang-terminal',
-    vehicleType: 'bus',
-    isActive: true,
-    coordinates: [
-      [120.9588, 14.8189],
-      [120.9714, 14.8277],
-      [120.9842, 14.8362],
-      [120.9914, 14.8415],
-      [120.9978, 14.8459],
-    ],
-  },
-  {
-    id: 'sta-maria-bayan-san-jose',
-    label: 'Sta. Maria Bayan - San Jose',
-    originTerminalId: 'sta-maria-bayan',
-    destinationTerminalId: 'san-jose-terminal',
-    vehicleType: 'bus',
-    isActive: true,
-    coordinates: [
-      [120.9588, 14.8189],
-      [120.9731, 14.8328],
-      [120.9876, 14.8473],
-      [121.0013, 14.8606],
-      [121.0142, 14.8741],
-    ],
-  },
-];
+function getGeneratedRouteCoordinates(routeId: string): RouteRecord['coordinates'] {
+  const coordinates = GENERATED_ROUTE_GEOMETRIES[routeId];
 
-function reverseRouteCoordinates(coordinates: RouteRecord['coordinates']): RouteRecord['coordinates'] {
-  return [...coordinates]
-    .reverse()
-    .map(([longitude, latitude]) => [longitude, latitude]);
-}
-
-function buildReverseRouteId(originTerminalId: string, destinationTerminalId: string) {
-  return `${destinationTerminalId.replace('-terminal', '')}-${originTerminalId.replace('-terminal', '')}`;
-}
-
-function buildReverseRouteLabel(label: string) {
-  const [originLabel, destinationLabel] = label.split(' - ');
-
-  if (!originLabel || !destinationLabel) {
-    return label;
+  if (!coordinates || coordinates.length < 2) {
+    throw new Error(`Missing generated route geometry for ${routeId}. Run npm.cmd run seed:transport:refresh-geometry.`);
   }
 
-  return `${destinationLabel} - ${originLabel}`;
+  return coordinates.map(([longitude, latitude]) => [longitude, latitude]);
 }
 
-export const ROUTE_SEED: RouteRecord[] = BASE_ROUTE_SEED.flatMap((route) => [
-  {
-    ...route,
-    isActive: true,
-  },
-  {
-    id: buildReverseRouteId(route.originTerminalId, route.destinationTerminalId),
-    label: buildReverseRouteLabel(route.label),
-    originTerminalId: route.destinationTerminalId,
-    destinationTerminalId: route.originTerminalId,
-    vehicleType: route.vehicleType,
-    isActive: true,
-    coordinates: reverseRouteCoordinates(route.coordinates),
-  },
-]);
+export const ROUTE_SEED: RouteRecord[] = BASE_ROUTE_TEMPLATE_SEED.flatMap((route) => {
+  const coordinates = getGeneratedRouteCoordinates(route.id);
+
+  return [
+    {
+      id: route.id,
+      label: route.label,
+      originTerminalId: route.originTerminalId,
+      destinationTerminalId: route.destinationTerminalId,
+      vehicleType: route.vehicleType,
+      coordinates,
+      isActive: true,
+    },
+    {
+      id: buildReverseRouteId(route.originTerminalId, route.destinationTerminalId),
+      label: buildReverseRouteLabel(route.label),
+      originTerminalId: route.destinationTerminalId,
+      destinationTerminalId: route.originTerminalId,
+      vehicleType: route.vehicleType,
+      isActive: true,
+      coordinates: reverseRouteCoordinates(coordinates),
+    },
+  ];
+});

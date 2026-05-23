@@ -1,6 +1,13 @@
 // Live Data Contracts - defines the shared types and service interface for trip state.
 import type { NotificationItem } from '@/services/contracts/notifications';
-import type { DriverSelectionState, RouteRecord, TerminalOption, VehicleType } from '@/lib/domain/transport';
+import type {
+  DriverGuidanceState,
+  DriverLocationStatus,
+  DriverSelectionState,
+  RouteRecord,
+  TerminalOption,
+  VehicleType,
+} from '@/lib/domain/transport';
 
 export interface VehicleMarker {
   id: string;
@@ -8,8 +15,10 @@ export interface VehicleMarker {
   coordinate: [number, number];
   routeId: string;
   routeLabel: string;
+  recordedAt: string;
   fare: string;
   speed: string;
+  speedKph: number | null;
   distance: string;
   eta: string;
 }
@@ -20,8 +29,19 @@ export interface ActiveTripState {
   routeLabel: string;
   originTerminalId: string;
   destinationTerminalId: string;
+  originLocationId: string | null;
+  destinationLocationId: string | null;
   vehicleId: string;
   startedAt: string;
+  lastLocationRecordedAt: string | null;
+  locationStatus: DriverLocationStatus;
+}
+
+export interface DriverTerminalSelectionInput {
+  originTerminalId: string | null;
+  destinationTerminalId: string | null;
+  originLocationId?: string | null;
+  destinationLocationId?: string | null;
 }
 
 export interface PublishDriverLocationInput {
@@ -34,10 +54,20 @@ export interface PublishDriverLocationInput {
   recordedAt?: string;
 }
 
+export interface StartTripInput {
+  latitude: number;
+  longitude: number;
+  heading: number | null;
+  speed: number | null;
+  accuracy: number | null;
+  recordedAt?: string;
+}
+
 export interface LiveDataSnapshot {
   terminals: TerminalOption[];
   routes: RouteRecord[];
   activeTrip: ActiveTripState | null;
+  driverGuidance: DriverGuidanceState | null;
   vehicles: VehicleMarker[];
   driverSelection: DriverSelectionState;
   notificationsByRole: {
@@ -49,8 +79,8 @@ export interface LiveDataSnapshot {
 export interface LiveDataService {
   getSnapshot(): Promise<LiveDataSnapshot>;
   subscribe(listener: (snapshot: LiveDataSnapshot) => void): () => void;
-  selectDriverTerminals(originTerminalId: string | null, destinationTerminalId: string | null): Promise<LiveDataSnapshot>;
-  startTrip(): Promise<LiveDataSnapshot>;
+  selectDriverTerminals(input: DriverTerminalSelectionInput): Promise<LiveDataSnapshot>;
+  startTrip(input?: StartTripInput): Promise<LiveDataSnapshot>;
   endTrip(): Promise<LiveDataSnapshot>;
   publishDriverLocation(input: PublishDriverLocationInput): Promise<LiveDataSnapshot>;
   reset(): Promise<LiveDataSnapshot>;

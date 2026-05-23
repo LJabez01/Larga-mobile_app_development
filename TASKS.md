@@ -28,21 +28,21 @@ Build the backend and route-data foundation that supports both the commuter and 
 - [ ] Define route document shape
 - [ ] Define terminal document shape
 - [ ] Define how route branches are represented as separate route records
-- [ ] Define route polyline storage format
+- [x] Define route polyline storage format
 - [ ] Define configurable route proximity threshold
 
 ## Commuter tasks
 - [ ] Define commuter reference-point handling
 - [ ] Define nearby-route matching query strategy
-- [ ] Define vehicle freshness window
+- [x] Define vehicle freshness window
 - [ ] Define route-relevance filter logic
 - [ ] Define moderate ETA heuristic for MVP
 
 ## Driver tasks
 - [ ] Define `Larga` activation contract
-- [ ] Define route-load failure behavior
+- [x] Define route-load failure behavior
 - [ ] Define arrival detection and manual end fallback
-- [ ] Define return-trip confirmation behavior
+- [x] Define return-trip confirmation behavior
 - [ ] Define simple off-route warning behavior
 - [ ] Define simple in-motion safety warning rule
 

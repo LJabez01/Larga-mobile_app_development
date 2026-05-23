@@ -1,20 +1,33 @@
 // Map Fallback - shows a safe fallback when Mapbox is unavailable.
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function MapFallback() {
+interface MapFallbackProps {
+  eyebrow?: string;
+  title?: string;
+  text?: string;
+  loading?: boolean;
+}
+
+export default function MapFallback({
+  eyebrow = 'Map Experience',
+  title = 'Map view is unavailable',
+  text = 'This build does not include native Mapbox support. Use a development build or EAS build to enable map rendering.',
+  loading = false,
+}: MapFallbackProps) {
   return (
     <View style={styles.fallbackContainer}>
       <View style={styles.fallbackCard}>
         <View style={styles.fallbackIconWrap}>
-          <Ionicons name="map-outline" size={28} color="#158251" />
+          {loading ? (
+            <ActivityIndicator color="#158251" />
+          ) : (
+            <Ionicons name="map-outline" size={28} color="#158251" />
+          )}
         </View>
-        <Text style={styles.fallbackEyebrow}>Map Experience</Text>
-        <Text style={styles.fallbackTitle}>Map view is unavailable</Text>
-        <Text style={styles.fallbackText}>
-          This build does not include native Mapbox support. Use a development
-          build or EAS build to enable map rendering.
-        </Text>
+        <Text style={styles.fallbackEyebrow}>{eyebrow}</Text>
+        <Text style={styles.fallbackTitle}>{title}</Text>
+        <Text style={styles.fallbackText}>{text}</Text>
       </View>
     </View>
   );

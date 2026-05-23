@@ -2,14 +2,19 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { createEmptyDriverSelection } from '@/lib/domain/transport';
-import type { LiveDataSnapshot, PublishDriverLocationInput } from '@/services/contracts/live-data';
+import type {
+  DriverTerminalSelectionInput,
+  LiveDataSnapshot,
+  PublishDriverLocationInput,
+  StartTripInput,
+} from '@/services/contracts/live-data';
 import { liveDataService } from '@/services/live-data';
 import { ROUTE_FIXTURES, TERMINAL_FIXTURES } from '@/services/fixtures/routes';
 
 interface LiveDataContextValue {
   snapshot: LiveDataSnapshot;
-  selectDriverTerminals: (originTerminalId: string | null, destinationTerminalId: string | null) => Promise<LiveDataSnapshot>;
-  startTrip: () => Promise<LiveDataSnapshot>;
+  selectDriverTerminals: (input: DriverTerminalSelectionInput) => Promise<LiveDataSnapshot>;
+  startTrip: (input?: StartTripInput) => Promise<LiveDataSnapshot>;
   endTrip: () => Promise<LiveDataSnapshot>;
   publishDriverLocation: (input: PublishDriverLocationInput) => Promise<LiveDataSnapshot>;
   reset: () => Promise<LiveDataSnapshot>;
@@ -19,6 +24,7 @@ const fallbackSnapshot: LiveDataSnapshot = {
   terminals: TERMINAL_FIXTURES.map((terminal) => ({ ...terminal })),
   routes: ROUTE_FIXTURES.map((route) => ({ ...route })),
   activeTrip: null,
+  driverGuidance: null,
   vehicles: [],
   driverSelection: createEmptyDriverSelection(),
   notificationsByRole: {
