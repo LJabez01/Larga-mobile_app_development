@@ -1,7 +1,35 @@
+import {
+  areCoordinatesEqual,
+  findNearestRouteProjection,
+  getBearingDeltaDegrees,
+  getCoordinateDistance,
+  getCoordinateDistanceMeters,
+  getPathDistanceMeters,
+  getSegmentBearingDegrees,
+  mergeRouteCoordinateSegments,
+  sliceRouteFromProjection,
+} from '@/lib/domain/route-geometry';
+import type {
+  RouteCoordinate,
+  RouteProjection,
+  RouteBranchRange,
+  SliceRouteFromProjectionResult,
+} from '@/lib/domain/route-geometry';
 // Transport Domain Helpers - resolves route, terminal, and vehicle transport logic.
 export type VehicleType = 'bus' | 'jeep';
-
-export type RouteCoordinate = [number, number];
+export {
+  areCoordinatesEqual,
+  findNearestRouteProjection,
+  getCoordinateDistanceMeters,
+  getPathDistanceMeters,
+  mergeRouteCoordinateSegments,
+} from '@/lib/domain/route-geometry';
+export type {
+  RouteCoordinate,
+  RouteProjection,
+  RouteBranchRange,
+  SliceRouteFromProjectionResult,
+} from '@/lib/domain/route-geometry';
 
 export interface FirestoreRouteCoordinate {
   longitude: number;
@@ -41,6 +69,7 @@ export type DriverGuidanceMode = 'live-guidance' | 'stored-route-fallback' | 'ro
 export interface DriverGuidanceState {
   mode: DriverGuidanceMode;
   sourceRouteId: string;
+  sourceRouteGeometrySignature: string | null;
   originCoordinate: RouteCoordinate;
   destinationCoordinate: RouteCoordinate;
   routeProgressSegmentIndex: number | null;
@@ -62,6 +91,7 @@ export const DRIVER_GUIDANCE_CONNECTOR_MIN_DISTANCE_METERS = 20;
 export const DRIVER_GUIDANCE_MIN_REFRESH_INTERVAL_MS = 15 * 1000;
 export const DRIVER_GUIDANCE_MAX_DIRECTIONS_COORDINATES = 25;
 export const DRIVER_GUIDANCE_PROGRESS_BACKTRACK_SEGMENTS = 6;
+export const DRIVER_GUIDANCE_TERMINAL_START_SEGMENT_WINDOW = 8;
 
 const DRIVER_GUIDANCE_CORRIDOR_ANCHOR_SPACING_METERS = 1_200;
 const DRIVER_GUIDANCE_CORRIDOR_TURN_THRESHOLD_DEGREES = 20;
@@ -122,71 +152,6 @@ export function isVehicleLocationFresh(recordedAt: string, now = Date.now()) {
   return now - recordedAtMs <= VEHICLE_FRESHNESS_WINDOW_MS;
 }
 
-function getCoordinateDistance(
-  left: RouteCoordinate,
-  right: RouteCoordinate,
-) {
-  const longitudeDistance = left[0] - right[0];
-  const latitudeDistance = left[1] - right[1];
-
-  return Math.sqrt((longitudeDistance ** 2) + (latitudeDistance ** 2));
-}
-
-function toRadians(value: number) {
-  return (value * Math.PI) / 180;
-}
-
-function toDegrees(value: number) {
-  return (value * 180) / Math.PI;
-}
-
-export function getCoordinateDistanceMeters(
-  left: RouteCoordinate,
-  right: RouteCoordinate,
-) {
-  const earthRadiusMeters = 6_371_000;
-  const latitudeDelta = toRadians(right[1] - left[1]);
-  const longitudeDelta = toRadians(right[0] - left[0]);
-  const leftLatitude = toRadians(left[1]);
-  const rightLatitude = toRadians(right[1]);
-  const a = (Math.sin(latitudeDelta / 2) ** 2)
-    + (Math.cos(leftLatitude) * Math.cos(rightLatitude) * (Math.sin(longitudeDelta / 2) ** 2));
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return earthRadiusMeters * c;
-}
-
-export function areCoordinatesEqual(left: RouteCoordinate, right: RouteCoordinate) {
-  return left[0] === right[0] && left[1] === right[1];
-}
-
-function getSegmentBearingDegrees(
-  segmentStart: RouteCoordinate,
-  segmentEnd: RouteCoordinate,
-) {
-  const latitudeDelta = toRadians(segmentEnd[1] - segmentStart[1]);
-  const longitudeDelta = toRadians(segmentEnd[0] - segmentStart[0]);
-
-  if (latitudeDelta === 0 && longitudeDelta === 0) {
-    return null;
-  }
-
-  const startLatitude = toRadians(segmentStart[1]);
-  const endLatitude = toRadians(segmentEnd[1]);
-  const y = Math.sin(longitudeDelta) * Math.cos(endLatitude);
-  const x = (Math.cos(startLatitude) * Math.sin(endLatitude))
-    - (Math.sin(startLatitude) * Math.cos(endLatitude) * Math.cos(longitudeDelta));
-  const bearing = (toDegrees(Math.atan2(y, x)) + 360) % 360;
-
-  return Number.isFinite(bearing) ? bearing : null;
-}
-
-function getBearingDeltaDegrees(leftBearing: number, rightBearing: number) {
-  const delta = Math.abs(leftBearing - rightBearing);
-
-  return Math.min(delta, 360 - delta);
-}
-
 function normalizeGuidanceProgressStartIndex(
   routeCoordinates: RouteCoordinate[],
   currentProgressSegmentIndex: number | null,
@@ -206,64 +171,6 @@ function normalizeGuidanceProgressStartIndex(
       currentProgressSegmentIndex - DRIVER_GUIDANCE_PROGRESS_BACKTRACK_SEGMENTS,
     ),
   );
-}
-
-function projectCoordinateOntoSegment(
-  coordinate: RouteCoordinate,
-  segmentStart: RouteCoordinate,
-  segmentEnd: RouteCoordinate,
-): RouteCoordinate {
-  const segmentLongitude = segmentEnd[0] - segmentStart[0];
-  const segmentLatitude = segmentEnd[1] - segmentStart[1];
-  const segmentLengthSquared = (segmentLongitude ** 2) + (segmentLatitude ** 2);
-
-  if (segmentLengthSquared === 0) {
-    return segmentStart;
-  }
-
-  const coordinateLongitude = coordinate[0] - segmentStart[0];
-  const coordinateLatitude = coordinate[1] - segmentStart[1];
-  const projection = ((coordinateLongitude * segmentLongitude) + (coordinateLatitude * segmentLatitude)) / segmentLengthSquared;
-  const clampedProjection = Math.min(Math.max(projection, 0), 1);
-
-  return [
-    segmentStart[0] + (segmentLongitude * clampedProjection),
-    segmentStart[1] + (segmentLatitude * clampedProjection),
-  ];
-}
-
-export function findNearestRouteProjection(
-  coordinates: RouteCoordinate[],
-  currentCoordinate: RouteCoordinate,
-) {
-  if (coordinates.length < 2) {
-    return null;
-  }
-
-  let nearestProjection: {
-    coordinate: RouteCoordinate;
-    segmentIndex: number;
-    distance: number;
-  } | null = null;
-
-  for (let index = 0; index < coordinates.length - 1; index += 1) {
-    const projectedCoordinate = projectCoordinateOntoSegment(
-      currentCoordinate,
-      coordinates[index],
-      coordinates[index + 1],
-    );
-    const distance = getCoordinateDistance(projectedCoordinate, currentCoordinate);
-
-    if (!nearestProjection || distance < nearestProjection.distance) {
-      nearestProjection = {
-        coordinate: projectedCoordinate,
-        segmentIndex: index,
-        distance,
-      };
-    }
-  }
-
-  return nearestProjection;
 }
 
 function parseTimestampMs(value: string) {
@@ -299,98 +206,20 @@ export function buildResponsiveRouteCoordinates(
   coordinates: RouteCoordinate[],
   currentCoordinate: RouteCoordinate,
 ) {
-  if (coordinates.length < 2) {
-    return coordinates;
-  }
-
-  const nearestProjection = findNearestRouteProjection(coordinates, currentCoordinate);
-
-  if (!nearestProjection) {
-    return coordinates;
-  }
-
-  const remainingCoordinates = coordinates.slice(nearestProjection.segmentIndex + 1);
-  const snappedCoordinate = nearestProjection.coordinate;
-
-  if (remainingCoordinates.length === 0) {
-    return [snappedCoordinate];
-  }
-
-  if (areCoordinatesEqual(snappedCoordinate, remainingCoordinates[0])) {
-    return remainingCoordinates;
-  }
-
-  return [snappedCoordinate, ...remainingCoordinates];
+  return sliceRouteFromProjection(
+    coordinates,
+    currentCoordinate,
+  ).remainingCoordinates;
 }
 
-function buildGuidanceRouteCoordinates(
-  coordinates: RouteCoordinate[],
-  currentCoordinate: RouteCoordinate,
-  minimumSegmentIndex = 0,
-) {
-  if (coordinates.length < 2) {
-    return {
-      remainingCoordinates: coordinates,
-      progressSegmentIndex: null as number | null,
-      snappedCoordinate: coordinates[0] ?? currentCoordinate,
-    };
+export function buildRouteGeometrySignature(coordinates: ReadonlyArray<RouteCoordinate>) {
+  if (coordinates.length === 0) {
+    return '';
   }
 
-  let nearestProjection: {
-    coordinate: RouteCoordinate;
-    segmentIndex: number;
-    distance: number;
-  } | null = null;
-
-  for (let index = minimumSegmentIndex; index < coordinates.length - 1; index += 1) {
-    const projectedCoordinate = projectCoordinateOntoSegment(
-      currentCoordinate,
-      coordinates[index],
-      coordinates[index + 1],
-    );
-    const distance = getCoordinateDistance(projectedCoordinate, currentCoordinate);
-
-    if (!nearestProjection || distance < nearestProjection.distance) {
-      nearestProjection = {
-        coordinate: projectedCoordinate,
-        segmentIndex: index,
-        distance,
-      };
-    }
-  }
-
-  if (!nearestProjection) {
-    return {
-      remainingCoordinates: coordinates,
-      progressSegmentIndex: null,
-      snappedCoordinate: coordinates[0] ?? currentCoordinate,
-    };
-  }
-
-  const remainingCoordinates = coordinates.slice(nearestProjection.segmentIndex + 1);
-  const snappedCoordinate = nearestProjection.coordinate;
-
-  if (remainingCoordinates.length === 0) {
-    return {
-      remainingCoordinates: [snappedCoordinate],
-      progressSegmentIndex: nearestProjection.segmentIndex,
-      snappedCoordinate,
-    };
-  }
-
-  if (areCoordinatesEqual(snappedCoordinate, remainingCoordinates[0])) {
-    return {
-      remainingCoordinates,
-      progressSegmentIndex: nearestProjection.segmentIndex,
-      snappedCoordinate,
-    };
-  }
-
-  return {
-    remainingCoordinates: [snappedCoordinate, ...remainingCoordinates],
-    progressSegmentIndex: nearestProjection.segmentIndex,
-    snappedCoordinate,
-  };
+  return coordinates
+    .map(([longitude, latitude]) => `${longitude.toFixed(6)},${latitude.toFixed(6)}`)
+    .join('|');
 }
 
 export interface DriverGuidancePathPlan {
@@ -400,38 +229,16 @@ export interface DriverGuidancePathPlan {
   offRouteDistanceMeters: number;
 }
 
-export function mergeRouteCoordinateSegments(...segments: RouteCoordinate[][]) {
-  const mergedCoordinates: RouteCoordinate[] = [];
+export function shouldPreferStoredCorridorAtRouteStart(
+  guidancePlan: DriverGuidancePathPlan,
+  currentProgressSegmentIndex: number | null = null,
+) {
+  const normalizedProgressSegmentIndex = Math.max(currentProgressSegmentIndex ?? 0, 0);
+  const normalizedRejoinSegmentIndex = Math.max(guidancePlan.rejoinSegmentIndex ?? 0, 0);
 
-  segments.forEach((segment) => {
-    segment.forEach((coordinate) => {
-      if (
-        mergedCoordinates.length === 0
-        || !areCoordinatesEqual(mergedCoordinates[mergedCoordinates.length - 1], coordinate)
-      ) {
-        mergedCoordinates.push(coordinate);
-      }
-    });
-  });
-
-  return mergedCoordinates;
-}
-
-export function getPathDistanceMeters(coordinates: RouteCoordinate[]) {
-  if (coordinates.length < 2) {
-    return 0;
-  }
-
-  let totalDistanceMeters = 0;
-
-  for (let index = 0; index < coordinates.length - 1; index += 1) {
-    totalDistanceMeters += getCoordinateDistanceMeters(
-      coordinates[index],
-      coordinates[index + 1],
-    );
-  }
-
-  return totalDistanceMeters;
+  return normalizedProgressSegmentIndex <= DRIVER_GUIDANCE_TERMINAL_START_SEGMENT_WINDOW
+    && normalizedRejoinSegmentIndex <= DRIVER_GUIDANCE_TERMINAL_START_SEGMENT_WINDOW
+    && guidancePlan.offRouteDistanceMeters < DRIVER_GUIDANCE_OFF_ROUTE_DISTANCE_METERS;
 }
 
 export function buildDriverGuidancePathPlan(
@@ -440,7 +247,7 @@ export function buildDriverGuidancePathPlan(
   destinationCoordinate: RouteCoordinate,
   currentProgressSegmentIndex: number | null = null,
 ): DriverGuidancePathPlan {
-  const guidanceRoute = buildGuidanceRouteCoordinates(
+  const guidanceRoute = sliceRouteFromProjection(
     routeCoordinates,
     currentCoordinate,
     normalizeGuidanceProgressStartIndex(routeCoordinates, currentProgressSegmentIndex),
@@ -617,6 +424,7 @@ interface BuildDriverGuidanceStateInput {
   connectorCoordinates?: RouteCoordinate[] | null;
   mode: DriverGuidanceMode;
   sourceRouteId: string;
+  sourceRouteGeometrySignature?: string | null;
   updatedAt?: string;
   warningMessage?: string | null;
 }
@@ -629,12 +437,14 @@ function createDriverGuidanceState({
   connectorCoordinates = null,
   mode,
   sourceRouteId,
+  sourceRouteGeometrySignature = null,
   updatedAt = new Date().toISOString(),
   warningMessage = null,
 }: BuildDriverGuidanceStateInput): DriverGuidanceState {
   return {
     mode,
     sourceRouteId,
+    sourceRouteGeometrySignature,
     originCoordinate: [...currentCoordinate],
     destinationCoordinate: [...destinationCoordinate],
     routeProgressSegmentIndex,
@@ -657,6 +467,7 @@ export function buildLiveDriverGuidanceState(
   updatedAt?: string,
   routeProgressSegmentIndex: number | null = null,
   connectorCoordinates: RouteCoordinate[] | null = null,
+  sourceRouteGeometrySignature: string | null = null,
 ) {
   return createDriverGuidanceState({
     currentCoordinate,
@@ -666,6 +477,7 @@ export function buildLiveDriverGuidanceState(
     connectorCoordinates,
     mode: 'live-guidance',
     sourceRouteId,
+    sourceRouteGeometrySignature,
     updatedAt,
   });
 }
@@ -678,6 +490,7 @@ export function buildStoredRouteFallbackGuidanceState(
   updatedAt?: string,
   warningMessage = 'Live road guidance unavailable. Showing the remaining assigned route only.',
   routeProgressSegmentIndex: number | null = null,
+  sourceRouteGeometrySignature: string | null = null,
 ) {
   return createDriverGuidanceState({
     currentCoordinate,
@@ -686,6 +499,7 @@ export function buildStoredRouteFallbackGuidanceState(
     routeCoordinates: storedRouteCoordinates,
     mode: 'stored-route-fallback',
     sourceRouteId,
+    sourceRouteGeometrySignature,
     updatedAt,
     warningMessage,
   });
@@ -697,6 +511,7 @@ export function buildRouteUnavailableGuidanceState(
   sourceRouteId: string,
   updatedAt?: string,
   warningMessage = 'Route guidance is unavailable right now. Retry when your connection improves.',
+  sourceRouteGeometrySignature: string | null = null,
 ) {
   return createDriverGuidanceState({
     currentCoordinate,
@@ -704,6 +519,7 @@ export function buildRouteUnavailableGuidanceState(
     routeCoordinates: null,
     mode: 'route-unavailable',
     sourceRouteId,
+    sourceRouteGeometrySignature,
     updatedAt,
     warningMessage,
   });
@@ -714,6 +530,7 @@ interface ShouldRefreshDriverGuidanceInput {
   currentCoordinate: RouteCoordinate;
   destinationCoordinate: RouteCoordinate;
   sourceRouteId: string;
+  sourceRouteGeometrySignature?: string | null;
   now?: number;
 }
 
@@ -722,6 +539,7 @@ export function shouldRefreshDriverGuidance({
   currentCoordinate,
   destinationCoordinate,
   sourceRouteId,
+  sourceRouteGeometrySignature = null,
   now = Date.now(),
 }: ShouldRefreshDriverGuidanceInput) {
   if (!guidance) {
@@ -733,6 +551,10 @@ export function shouldRefreshDriverGuidance({
   }
 
   if (!areCoordinatesEqual(guidance.destinationCoordinate, destinationCoordinate)) {
+    return true;
+  }
+
+  if (guidance.sourceRouteGeometrySignature !== sourceRouteGeometrySignature) {
     return true;
   }
 

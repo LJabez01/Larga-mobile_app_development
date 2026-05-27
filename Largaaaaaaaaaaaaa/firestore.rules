@@ -47,6 +47,49 @@ service cloud.firestore {
         && get(activeTripPath(driverId)).data.routeId == routeId;
     }
 
+    function validRouteProgressSegmentIndex(value) {
+      return value == null || (value is int && value >= 0);
+    }
+
+    function validActiveTripShape(data, driverId) {
+      return data.driverId == driverId
+        && data.routeId is string
+        && data.originTerminalId is string
+        && data.destinationTerminalId is string
+        && data.originTerminalId != data.destinationTerminalId
+        && data.status == 'active'
+        && data.startedAt is string
+        && data.updatedAt is string
+        && validRouteProgressSegmentIndex(data.routeProgressSegmentIndex);
+    }
+
+    function ownerCanUpdateActiveTripProgress(driverId) {
+      return isDriver()
+        && isOwner(driverId)
+        && resource.data.driverId == request.auth.uid
+        && request.resource.data.driverId == resource.data.driverId
+        && request.resource.data.routeId == resource.data.routeId
+        && request.resource.data.originTerminalId == resource.data.originTerminalId
+        && request.resource.data.destinationTerminalId == resource.data.destinationTerminalId
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.startedAt == resource.data.startedAt
+        && request.resource.data.keys().hasOnly([
+          'driverId',
+          'routeId',
+          'originTerminalId',
+          'destinationTerminalId',
+          'routeProgressSegmentIndex',
+          'status',
+          'startedAt',
+          'updatedAt'
+        ])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'routeProgressSegmentIndex',
+          'updatedAt'
+        ])
+        && validRouteProgressSegmentIndex(request.resource.data.routeProgressSegmentIndex);
+    }
+
     function validPublicUserProfile() {
       return request.resource.data.uid == request.auth.uid
         && request.resource.data.email is string
@@ -258,23 +301,19 @@ service cloud.firestore {
 
       allow create: if isDriver()
         && isOwner(driverId)
-        && request.resource.data.driverId == request.auth.uid
-        && request.resource.data.routeId is string
-        && request.resource.data.originTerminalId is string
-        && request.resource.data.destinationTerminalId is string
-        && request.resource.data.originTerminalId != request.resource.data.destinationTerminalId
-        && request.resource.data.status == 'active'
+        && validActiveTripShape(request.resource.data, driverId)
         && request.resource.data.keys().hasOnly([
           'driverId',
           'routeId',
           'originTerminalId',
           'destinationTerminalId',
+          'routeProgressSegmentIndex',
           'status',
           'startedAt',
           'updatedAt'
         ]);
 
-      allow update: if false;
+      allow update: if ownerCanUpdateActiveTripProgress(driverId) || isAdmin();
 
       allow delete: if (isDriver() && isOwner(driverId) && resource.data.driverId == request.auth.uid)
         || isAdmin();

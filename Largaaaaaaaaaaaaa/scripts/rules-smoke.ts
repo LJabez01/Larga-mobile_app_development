@@ -276,6 +276,7 @@ async function main() {
       routeId: 'sta-maria-bayan-halang',
       originTerminalId: 'sta-maria-bayan',
       destinationTerminalId: 'halang-terminal',
+      routeProgressSegmentIndex: null,
       status: 'active',
       startedAt: '2026-05-12T01:00:00.000Z',
       updatedAt: '2026-05-12T01:00:00.000Z',
@@ -294,6 +295,23 @@ async function main() {
 
     await expectDenied(
       setDoc(doc(driver.db, 'activeTrips', `${driver.uid}-second`), tripPayload),
+    );
+
+    await expectAllowed(
+      setDoc(doc(driver.db, 'activeTrips', driver.uid), {
+        ...tripPayload,
+        routeProgressSegmentIndex: 8,
+        updatedAt: '2026-05-12T01:00:30.000Z',
+      }),
+    );
+
+    await expectDenied(
+      setDoc(doc(driver.db, 'activeTrips', driver.uid), {
+        ...tripPayload,
+        routeId: 'sta-maria-bayan-norzagaray',
+        routeProgressSegmentIndex: 8,
+        updatedAt: '2026-05-12T01:00:31.000Z',
+      }),
     );
 
     const driverLocationPayload = {

@@ -29,6 +29,7 @@ import MapFallback from '../shared/MapFallback';
 import MapMarkerIcon from '../shared/MapMarkerIcon';
 import SettingsDrawer from '../../settings';
 import { useLiveData } from '@/components/providers/LiveDataProvider';
+import { buildDriverRouteRenderModel } from '@/lib/domain/driver-route-render';
 import {
   filterSelectableTerminalOptions,
   getSelectableInventoryLocationsForTerminalIds,
@@ -248,33 +249,6 @@ function formatEtaMetric(etaMinutes: number | null, locationStatus: 'idle' | 'li
   return `${hours}h ${minutes}m`;
 }
 
-function buildBoundsCoordinates(
-  routeCoordinates: RouteCoordinate[] | null,
-  connectorCoordinates: RouteCoordinate[] | null,
-  vehicleCoordinate: RouteCoordinate | null,
-  destinationCoordinate: RouteCoordinate | null,
-) {
-  const coordinates: RouteCoordinate[] = [];
-
-  if (routeCoordinates) {
-    coordinates.push(...routeCoordinates);
-  }
-
-  if (connectorCoordinates) {
-    coordinates.push(...connectorCoordinates);
-  }
-
-  if (vehicleCoordinate) {
-    coordinates.push(vehicleCoordinate);
-  }
-
-  if (destinationCoordinate) {
-    coordinates.push(destinationCoordinate);
-  }
-
-  return coordinates;
-}
-
 function getBoundsForCoordinates(coordinates: RouteCoordinate[]) {
   if (coordinates.length === 0) {
     return null;
@@ -466,41 +440,50 @@ export default function DriverMapScreen() {
       ? 'Choose a different terminal pair'
       : 'Trip setup needed';
   const canStartTrip = Boolean(selectedRoute) && !snapshot.activeTrip;
-  const routeLineFeature = useMemo(
-    () => (
-      activeTrip && driverGuidance?.routeCoordinates
-        ? {
-            type: 'Feature' as const,
-            properties: {
-              routeId: activeTrip.routeId,
-              mode: driverGuidance.mode,
-            },
-            geometry: {
-              type: 'LineString' as const,
-              coordinates: driverGuidance.routeCoordinates,
-            },
-          }
-        : null
-    ),
-    [activeTrip, driverGuidance],
+  const routeRenderModel = useMemo(
+    () => buildDriverRouteRenderModel({
+      activeRouteId: activeTrip?.routeId ?? null,
+      guidance: driverGuidance,
+      vehicleCoordinate: activeVehicle?.coordinate ?? null,
+      destinationCoordinate: mapDestinationTerminal?.coordinate ?? null,
+    }),
+    [activeTrip?.routeId, activeVehicle?.coordinate, driverGuidance, mapDestinationTerminal?.coordinate],
   );
-  const routeConnectorFeature = useMemo(
+  const mainRouteLineFeature = useMemo(
     () => (
-      activeTrip && driverGuidance?.connectorCoordinates
+      routeRenderModel.routeId && routeRenderModel.mainRouteCoordinates
         ? {
             type: 'Feature' as const,
             properties: {
-              routeId: activeTrip.routeId,
-              mode: driverGuidance.mode,
+              routeId: routeRenderModel.routeId,
+              mode: routeRenderModel.guidanceMode,
             },
             geometry: {
               type: 'LineString' as const,
-              coordinates: driverGuidance.connectorCoordinates,
+              coordinates: routeRenderModel.mainRouteCoordinates,
             },
           }
         : null
     ),
-    [activeTrip, driverGuidance],
+    [routeRenderModel],
+  );
+  const reconnectLineFeature = useMemo(
+    () => (
+      routeRenderModel.routeId && routeRenderModel.reconnectCoordinates
+        ? {
+            type: 'Feature' as const,
+            properties: {
+              routeId: routeRenderModel.routeId,
+              mode: routeRenderModel.guidanceMode,
+            },
+            geometry: {
+              type: 'LineString' as const,
+              coordinates: routeRenderModel.reconnectCoordinates,
+            },
+          }
+        : null
+    ),
+    [routeRenderModel],
   );
 
   const activeOriginLabel = activeTrip
@@ -582,17 +565,8 @@ export default function DriverMapScreen() {
   }
 
   function fitTripCameraContext(
-    routeCoordinates: RouteCoordinate[] | null,
-    connectorCoordinates: RouteCoordinate[] | null,
-    vehicleCoordinate: RouteCoordinate | null,
-    destinationCoordinate: RouteCoordinate | null,
+    boundsCoordinates: RouteCoordinate[],
   ) {
-    const boundsCoordinates = buildBoundsCoordinates(
-      routeCoordinates,
-      connectorCoordinates,
-      vehicleCoordinate,
-      destinationCoordinate,
-    );
     const bounds = getBoundsForCoordinates(boundsCoordinates);
 
     if (!bounds || !cameraRef.current?.fitBounds) {
@@ -680,15 +654,10 @@ export default function DriverMapScreen() {
     clearTripStartFocusTimeout();
     tripStartFocusTimeoutRef.current = setTimeout(() => {
       startFocusActiveRef.current = false;
-      fitTripCameraContext(
-        driverGuidance?.routeCoordinates ?? null,
-        driverGuidance?.connectorCoordinates ?? null,
-        activeVehicle.coordinate,
-        mapDestinationTerminal?.coordinate ?? null,
-      );
+      fitTripCameraContext(routeRenderModel.boundsCoordinates);
       tripStartFocusTimeoutRef.current = null;
     }, START_TRIP_ROUTE_OVERVIEW_DELAY_MS);
-  }, [activeTrip, activeVehicle, driverGuidance, mapDestinationTerminal]);
+  }, [activeTrip, activeVehicle, routeRenderModel]);
 
   useEffect(() => {
     if (!activeTrip) {
@@ -715,13 +684,8 @@ export default function DriverMapScreen() {
     }
 
     lastGuidanceFitKeyRef.current = fitKey;
-    fitTripCameraContext(
-      driverGuidance.routeCoordinates,
-      driverGuidance.connectorCoordinates,
-      activeVehicle.coordinate,
-      mapDestinationTerminal.coordinate,
-    );
-  }, [activeTrip, activeVehicle, driverGuidance, mapDestinationTerminal]);
+    fitTripCameraContext(routeRenderModel.boundsCoordinates);
+  }, [activeTrip, activeVehicle, driverGuidance, mapDestinationTerminal, routeRenderModel]);
 
   useEffect(() => {
     return () => {
@@ -1219,8 +1183,8 @@ export default function DriverMapScreen() {
           pitch={MAP_PITCH}
         />
 
-        {routeConnectorFeature ? (
-          <Mapbox.ShapeSource id="driver-route-connector-source" shape={routeConnectorFeature}>
+        {reconnectLineFeature ? (
+          <Mapbox.ShapeSource id="driver-route-connector-source" shape={reconnectLineFeature}>
             <Mapbox.LineLayer
               id="driver-route-connector-line"
               style={{
@@ -1233,12 +1197,12 @@ export default function DriverMapScreen() {
           </Mapbox.ShapeSource>
         ) : null}
 
-        {routeLineFeature ? (
-          <Mapbox.ShapeSource id="driver-route-source" shape={routeLineFeature}>
+        {mainRouteLineFeature ? (
+          <Mapbox.ShapeSource id="driver-route-source" shape={mainRouteLineFeature}>
             <Mapbox.LineLayer
               id="driver-route-line"
               style={{
-                lineColor: driverGuidance?.mode === 'stored-route-fallback' ? '#14b8a6' : '#10b981',
+                lineColor: routeRenderModel.guidanceMode === 'stored-route-fallback' ? '#14b8a6' : '#10b981',
                 lineWidth: 5,
                 lineOpacity: 0.9,
               }}

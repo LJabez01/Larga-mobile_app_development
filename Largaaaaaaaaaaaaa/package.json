@@ -14,6 +14,7 @@
     "seed:foundation": "node scripts/seed-foundation.mjs",
     "seed:foundation:dry": "node scripts/seed-foundation.mjs --dry-run",
     "seed:transport": "node --import tsx scripts/seed-transport-catalog.ts",
+    "seed:transport:check-live": "node --import tsx scripts/seed-transport-catalog.ts --check-live",
     "seed:transport:apply": "node --import tsx scripts/seed-transport-catalog.ts --apply",
     "seed:transport:refresh-geometry": "node --import tsx scripts/refresh-transport-route-geometries.ts",
     "seed:admin": "node --import tsx scripts/seed-admin-account.ts",

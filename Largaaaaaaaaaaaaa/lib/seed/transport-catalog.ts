@@ -4,6 +4,10 @@ import type { RouteRecord, TerminalOption } from '@/lib/domain/transport';
 
 import { GENERATED_ROUTE_GEOMETRIES } from '@/lib/seed/generated/transport-route-geometries';
 import {
+  getRouteTruthTerminalCoordinate,
+  getRouteTruthTerminalMarkerCoordinate,
+} from '@/lib/seed/transport-location-inventory';
+import {
   BASE_ROUTE_TEMPLATE_SEED,
   buildReverseRouteId,
   buildReverseRouteLabel,
@@ -14,25 +18,25 @@ export const TERMINAL_SEED: TerminalOption[] = [
   {
     id: 'sta-maria-bayan',
     label: 'Sta. Maria Bayan Terminal',
-    coordinate: [120.9639, 14.8234],
+    coordinate: getRouteTruthTerminalMarkerCoordinate('sta-maria-bayan'),
     isActive: true,
   },
   {
     id: 'norzagaray-terminal',
     label: 'Norzagaray Terminal',
-    coordinate: [121.0458, 14.9107],
+    coordinate: getRouteTruthTerminalMarkerCoordinate('norzagaray-terminal'),
     isActive: true,
   },
   {
     id: 'halang-terminal',
     label: 'Halang Terminal',
-    coordinate: [121.0129, 14.8537],
+    coordinate: getRouteTruthTerminalMarkerCoordinate('halang-terminal'),
     isActive: true,
   },
   {
     id: 'san-jose-terminal',
     label: 'San Jose Terminal',
-    coordinate: [120.9975, 14.8376],
+    coordinate: getRouteTruthTerminalMarkerCoordinate('san-jose-terminal'),
     isActive: true,
   },
 ];
@@ -45,6 +49,26 @@ function getGeneratedRouteCoordinates(routeId: string): RouteRecord['coordinates
   }
 
   return coordinates.map(([longitude, latitude]) => [longitude, latitude]);
+}
+
+function buildReverseRouteRecord(
+  route: (typeof BASE_ROUTE_TEMPLATE_SEED)[number],
+  coordinates: RouteRecord['coordinates'],
+): RouteRecord {
+  switch (route.reverseRouteDerivation) {
+    case 'shared-corridor-reverse':
+      return {
+        id: buildReverseRouteId(route.originTerminalId, route.destinationTerminalId),
+        label: buildReverseRouteLabel(route.label),
+        originTerminalId: route.destinationTerminalId,
+        destinationTerminalId: route.originTerminalId,
+        vehicleType: route.vehicleType,
+        isActive: true,
+        coordinates: reverseRouteCoordinates(coordinates),
+      };
+    default:
+      throw new Error(`Unsupported reverse route derivation for ${route.id}`);
+  }
 }
 
 export const ROUTE_SEED: RouteRecord[] = BASE_ROUTE_TEMPLATE_SEED.flatMap((route) => {
@@ -60,14 +84,6 @@ export const ROUTE_SEED: RouteRecord[] = BASE_ROUTE_TEMPLATE_SEED.flatMap((route
       coordinates,
       isActive: true,
     },
-    {
-      id: buildReverseRouteId(route.originTerminalId, route.destinationTerminalId),
-      label: buildReverseRouteLabel(route.label),
-      originTerminalId: route.destinationTerminalId,
-      destinationTerminalId: route.originTerminalId,
-      vehicleType: route.vehicleType,
-      isActive: true,
-      coordinates: reverseRouteCoordinates(coordinates),
-    },
+    buildReverseRouteRecord(route, coordinates),
   ];
 });

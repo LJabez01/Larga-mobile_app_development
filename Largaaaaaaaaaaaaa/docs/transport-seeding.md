@@ -31,6 +31,13 @@ cd "C:\Users\Carl Lester\OneDrive\Documents\GitHub\Larga-mobile_app_development\
 npm.cmd run seed:transport
 ```
 
+Check whether live Firestore transport docs already match the repo-owned seed:
+
+```powershell
+cd "C:\Users\Carl Lester\OneDrive\Documents\GitHub\Larga-mobile_app_development\Largaaaaaaaaaaaaa"
+node --import tsx scripts/seed-transport-catalog.ts --check-live
+```
+
 Apply to the configured real Firebase project:
 
 ```powershell
@@ -53,11 +60,13 @@ npm.cmd run seed:transport:apply
 4. Run `npm.cmd run test`
 5. Run `npm.cmd run seed:transport`
 6. Review the dry-run output
-7. Run `npm.cmd run seed:transport:apply`
+7. Run `node --import tsx scripts/seed-transport-catalog.ts --check-live`
+8. Run `npm.cmd run seed:transport:apply`
 
 ## Safety rules
 - The seed script defaults to dry-run
 - Real-project apply requires an explicit local service-account path
+- Real-project live-check also requires an explicit local service-account path
 - Dry-run can work from the existing app Firebase project ID in `.env.local`
 - Route geometry is generated from Mapbox Directions using waypoint hints, then serialized into Firestore-safe objects automatically
 - The in-app map uses the checked-in public render token by default. Only use `EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN_OVERRIDE` after validating that token against the mobile Maps SDK on Android/iOS.

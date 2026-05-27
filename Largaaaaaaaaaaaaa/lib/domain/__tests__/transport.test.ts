@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   buildDriverTripMetrics,
+  buildRouteGeometrySignature,
   buildDriverGuidancePathPlan,
   buildGuidanceWaypointPath,
   mergeRouteCoordinateSegments,
@@ -448,5 +449,43 @@ test('shouldRefreshDriverGuidance reroutes after meaningful movement beyond the 
     destinationCoordinate: [120.030000, 14.000000],
     sourceRouteId: 'sta-maria-bayan-test',
     now: Date.parse('2026-05-22T09:00:00.000Z') + DRIVER_GUIDANCE_MIN_REFRESH_INTERVAL_MS + 1000,
+  }), true);
+});
+
+test('shouldRefreshDriverGuidance refreshes immediately when the source route geometry changes under the same route id', () => {
+  const originalRouteCoordinates = [
+    [120.000000, 14.000000],
+    [120.010000, 14.000000],
+    [120.020000, 14.000000],
+    [120.030000, 14.000000],
+  ] as [number, number][];
+  const updatedRouteCoordinates = [
+    [120.000000, 14.000000],
+    [120.012000, 14.000000],
+    [120.022000, 14.000000],
+    [120.030000, 14.000000],
+  ] as [number, number][];
+  const guidance = buildStoredRouteFallbackGuidanceState(
+    [120.000000, 14.000000],
+    [120.030000, 14.000000],
+    originalRouteCoordinates,
+    'sta-maria-bayan-test',
+    '2026-05-22T09:00:00.000Z',
+    'Live road guidance unavailable. Showing the remaining assigned route only.',
+    null,
+    buildRouteGeometrySignature(originalRouteCoordinates),
+  );
+
+  assert.equal(shouldRefreshDriverGuidance({
+    guidance: {
+      ...guidance,
+      mode: 'live-guidance',
+      routeCoordinates: originalRouteCoordinates,
+    },
+    currentCoordinate: [120.000400, 14.000000],
+    destinationCoordinate: [120.030000, 14.000000],
+    sourceRouteId: 'sta-maria-bayan-test',
+    sourceRouteGeometrySignature: buildRouteGeometrySignature(updatedRouteCoordinates),
+    now: Date.parse('2026-05-22T09:00:05.000Z'),
   }), true);
 });

@@ -121,6 +121,7 @@ Suggested fields:
 - `routeId`
 - `originTerminalId`
 - `destinationTerminalId`
+- `routeProgressSegmentIndex`
 - `status`
 - `startedAt`
 - `updatedAt`
@@ -128,7 +129,7 @@ Suggested fields:
 Rules intent:
 - Signed-in users can read active trips for map visibility.
 - Driver can create only one active trip at their own document path.
-- Driver cannot update the active trip document in place in the current MVP.
+- Driver can update only route-progress state and `updatedAt` during an active trip.
 - Ending a trip deletes the operational record.
 - The client may prepare the reverse terminal pair after trip end, but starting the return trip still requires a fresh `Larga` confirmation.
 - Admin can manage any trip.

@@ -37,6 +37,35 @@ test('resolveTransportSeedConfig supports emulator seeding without service accou
   );
 
   assert.equal(config.apply, false);
+  assert.equal(config.checkLive, false);
   assert.equal(config.usesEmulator, true);
   assert.equal(config.projectId, 'demo-no-project');
+});
+
+test('resolveTransportSeedConfig supports live-check mode on the emulator without service-account credentials', () => {
+  const config = resolveTransportSeedConfig(
+    ['--check-live'],
+    'C:\\workspace',
+    {
+      FIREBASE_PROJECT_ID: 'demo-no-project',
+      FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+    },
+  );
+
+  assert.equal(config.apply, false);
+  assert.equal(config.checkLive, true);
+  assert.equal(config.usesEmulator, true);
+});
+
+test('resolveTransportSeedConfig rejects combining live-check and apply modes', () => {
+  assert.throws(
+    () => resolveTransportSeedConfig(
+      ['--apply', '--check-live'],
+      'C:\\workspace',
+      {
+        FIREBASE_PROJECT_ID: 'larga-mobile-app-23265',
+      },
+    ),
+    /either --apply or --check-live/i,
+  );
 });

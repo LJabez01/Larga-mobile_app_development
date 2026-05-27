@@ -1,7 +1,7 @@
 # Driver Routing Corridor Plan
 
 Date: 2026-05-23  
-Status: Planned
+Status: In Progress
 
 ## Purpose
 Define the implementation plan for fixing the driver route polyline system at the root cause so the map shows one clean, road-aligned, progress-aware guide line for the active route.
@@ -94,6 +94,7 @@ Responsibilities:
 ## Implementation Phases
 
 ### Phase 1: Create a Dedicated Geometry Module
+Status: Implemented
 Purpose:
 Move route-cleaning logic into one maintainable module instead of scattering it across transport helpers.
 
@@ -122,6 +123,7 @@ Validation checkpoints:
 - tests prove the resulting corridor remains continuous
 
 ### Phase 2: Build the Route Spine Validator / Sanitizer
+Status: Implemented
 Purpose:
 Ensure official route truth is one dominant corridor spine instead of a noisy geometry dump.
 
@@ -137,18 +139,54 @@ Work:
   - self-near local loops
   - duplicate detour fragments
   - side-road noise that does not belong to the actual jeepney or bus path
+- apply the cleaning procedure inside `refresh-transport-route-geometries.ts` before any official route coordinates are written into `transport-route-geometries.ts`
 - output only the cleaned official corridor spine
+
+Cleaning procedure:
+1. Load the raw Mapbox-generated geometry for one route record at a time.
+2. Preserve the raw geometry in-memory for validation and debug comparison; do not overwrite it before checks pass.
+3. Normalize the geometry:
+   - remove exact duplicate adjacent coordinates
+   - collapse extremely dense micro-points only when endpoint continuity is preserved
+4. Detect candidate noise ranges using `route-geometry.ts`:
+   - short rejoining branch stubs
+   - self-near loop fragments
+   - duplicate local detours that leave and rejoin the same corridor section
+5. Score each candidate range against the corridor rules for that route family:
+   - keep geometry that matches the intended `Route Path / Major Roads`
+   - reject geometry that enters known avoid-corridors or obvious side-road drift
+6. Remove only the ranges that satisfy the sanitizer thresholds and still leave one continuous forward corridor.
+7. Re-run continuity checks on the cleaned result:
+   - at least two coordinates remain
+   - start and end still align with the intended terminal corridor edges
+   - no broken gap appears between kept segments
+8. Compare raw vs cleaned metrics:
+   - total point count
+   - total path distance
+   - detected branch/noise ranges removed
+9. Write the cleaned geometry as the official route record only if all validations pass.
+10. If validation fails, abort that route refresh and keep the previous official geometry instead of emitting partially cleaned output.
+
+Safety rules:
+- Never invent new geometry during cleaning; sanitization may only keep, remove, merge-adjacent, or simplify existing road-following coordinates.
+- Never let the cleaner jump across a gap just to make the line look smoother.
+- Never clean a route independently of its corridor rules; branch removal must respect the route-family major-road definition.
+- Never auto-accept a cleaned route whose endpoint drift exceeds the allowed terminal-corridor tolerance.
+- Prefer no refresh over a bad refresh. If the cleaner is uncertain, keep the last known-good official route geometry and surface the route for manual review.
 
 Expected output:
 - one clean official geometry per route record
 - no branch-like side stubs embedded in official route truth
+- every official route record is produced by the same guarded refresh pipeline, not by manual one-off edits
 
 Validation checkpoints:
 - sanitized geometry remains road-following
 - route point counts reduce or stabilize without breaking continuity
 - geometry still starts and ends at the correct terminal corridor edges
+- refresh fails loudly instead of writing malformed or over-cleaned geometry
 
 ### Phase 3: Reclassify Existing Sta. Maria Routes
+Status: Implemented
 Purpose:
 Re-evaluate each current route using the cleaned geometry model.
 
@@ -180,6 +218,7 @@ Validation checkpoints:
 - reverse paths are exact reversals of the forward corridor
 
 ### Phase 4: Align Terminal Endpoints with Route Corridors
+Status: Implemented
 Purpose:
 Ensure route start and end points align with the real operational terminal edges instead of unrelated nearby roads.
 
@@ -202,6 +241,7 @@ Validation checkpoints:
 - terminal marker and route endpoint mismatch is removed
 
 ### Phase 5: Add Forward Progress State
+Status: Implemented
 Purpose:
 Stop already-passed route segments from coming back during off-route scenarios.
 
@@ -226,6 +266,7 @@ Validation checkpoints:
 - self-near routes do not snap backward into previous corridor sections
 
 ### Phase 6: Rebuild Reconnect Guidance
+Status: Implemented
 Purpose:
 Use Mapbox Directions only for the off-route reconnect path, not for the whole trip path.
 
@@ -252,6 +293,7 @@ Validation checkpoints:
 - reconnect request does not duplicate or reshape the main corridor
 
 ### Phase 7: Simplify Driver Render Model
+Status: Implemented
 Purpose:
 Make the map consume one clean route view model only.
 
@@ -278,6 +320,7 @@ Validation checkpoints:
 - no duplicate stubs
 
 ### Phase 8: Seed the Cleaned Route Truth
+Status: Implemented
 Purpose:
 Push the corrected terminals and route geometry into the real Firebase project so runtime app behavior matches the cleaned route truth.
 
@@ -298,6 +341,7 @@ Validation checkpoints:
 - app runtime is reading updated route truth instead of stale geometry
 
 ### Phase 9: Regression Tests
+Status: Implemented
 Purpose:
 Lock the route behavior so future changes do not reintroduce branch noise or backward slicing.
 

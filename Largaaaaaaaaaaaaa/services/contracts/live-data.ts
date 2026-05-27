@@ -35,6 +35,7 @@ export interface ActiveTripState {
   startedAt: string;
   lastLocationRecordedAt: string | null;
   locationStatus: DriverLocationStatus;
+  routeProgressSegmentIndex: number | null;
 }
 
 export interface DriverTerminalSelectionInput {

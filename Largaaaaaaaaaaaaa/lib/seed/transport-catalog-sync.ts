@@ -17,6 +17,7 @@ export interface TransportSeedPayload {
 
 export interface TransportSeedConfig {
   apply: boolean;
+  checkLive: boolean;
   envFilePath: string;
   projectId: string;
   serviceAccountPath: string | null;
@@ -105,12 +106,18 @@ export function buildTransportSeedPayload(): TransportSeedPayload {
 
 function parseArgs(args: string[]) {
   let apply = false;
+  let checkLive = false;
   let envFilePath: string | null = null;
   let projectId: string | null = null;
 
   args.forEach((arg) => {
     if (arg === '--apply') {
       apply = true;
+      return;
+    }
+
+    if (arg === '--check-live') {
+      checkLive = true;
       return;
     }
 
@@ -126,6 +133,7 @@ function parseArgs(args: string[]) {
 
   return {
     apply,
+    checkLive,
     envFilePath,
     projectId,
   };
@@ -162,10 +170,14 @@ export function resolveTransportSeedConfig(args: string[], cwd: string, baseEnv:
     );
   }
 
-  if (parsedArgs.apply && !usesEmulator) {
+  if (parsedArgs.apply && parsedArgs.checkLive) {
+    throw new Error('Choose either --apply or --check-live, not both.');
+  }
+
+  if ((parsedArgs.apply || parsedArgs.checkLive) && !usesEmulator) {
     if (!serviceAccountPath) {
       throw new Error(
-        'Missing service-account credentials for real-project seeding. Set FIREBASE_SERVICE_ACCOUNT_PATH or GOOGLE_APPLICATION_CREDENTIALS in .env.seed.local.',
+        'Missing service-account credentials for real-project transport sync. Set FIREBASE_SERVICE_ACCOUNT_PATH or GOOGLE_APPLICATION_CREDENTIALS in .env.seed.local.',
       );
     }
 
@@ -176,6 +188,7 @@ export function resolveTransportSeedConfig(args: string[], cwd: string, baseEnv:
 
   return {
     apply: parsedArgs.apply,
+    checkLive: parsedArgs.checkLive,
     envFilePath,
     projectId,
     serviceAccountPath,

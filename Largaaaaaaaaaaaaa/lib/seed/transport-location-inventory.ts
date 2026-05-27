@@ -30,6 +30,7 @@ export interface TransportLocationSeed {
   isActive: boolean;
   vehicleServices: TransportLocationVehicleService[];
   approximateCoordinate: RouteCoordinate | null;
+  routeEndpointCoordinate?: RouteCoordinate | null;
   recommendedMapboxQuery: string;
   coordinatePrecision: TransportLocationCoordinatePrecision;
   confidence: TransportLocationConfidence;
@@ -39,6 +40,13 @@ export interface TransportLocationSeed {
   linkedTerminalId: string | null;
 }
 
+export const ROUTE_TRUTH_TERMINAL_LOCATION_IDS = {
+  'sta-maria-bayan': 'sta-maria-bayan',
+  'norzagaray-terminal': 'norzagaray-terminal',
+  'halang-terminal': 'halang-terminal',
+  'san-jose-terminal': 'san-jose-terminal',
+} as const satisfies Record<string, string>;
+
 export const STA_MARIA_PROXIMITY_ANCHOR: RouteCoordinate = [120.9590, 14.8180];
 
 // Comprehensive Sta. Maria-connected transport inventory based on the revised
@@ -47,6 +55,40 @@ export const STA_MARIA_PROXIMITY_ANCHOR: RouteCoordinate = [120.9590, 14.8180];
 // route-truth subset used by the current MVP.
 export const TRANSPORT_LOCATION_INVENTORY_SEED: TransportLocationSeed[] = [
   {
+    id: 'sta-maria-bayan',
+    label: 'Sta. Maria Bayan Terminal',
+    classification: 'operational-terminal',
+    endpointReady: true,
+    isActive: true,
+    vehicleServices: ['jeep'],
+    approximateCoordinate: [120.9588, 14.8178],
+    routeEndpointCoordinate: [120.9588, 14.8178],
+    recommendedMapboxQuery: 'New Santa Maria Jeepney Terminal, Santa Maria, Bulacan, Philippines',
+    coordinatePrecision: 'web_verified_candidate',
+    confidence: 'confirmed',
+    notes: 'Canonical route-truth Sta. Maria endpoint used by the MVP route set. The New Santa Maria Jeepney Terminal evidence anchor resolves into this terminal.',
+    sourceLabel: 'Waze, New Santa Maria Jeepney Terminal',
+    sourceUrl: 'https://www.waze.com/live-map/directions/ph/central-luzon/santa-maria/new-santa-maria-jeepney-terminal?to=place.ChIJebRBcbStlzMRZ8LZIhqjJ4s',
+    linkedTerminalId: 'sta-maria-bayan',
+  },
+  {
+    id: 'norzagaray-terminal',
+    label: 'Norzagaray Terminal',
+    classification: 'operational-terminal',
+    endpointReady: true,
+    isActive: true,
+    vehicleServices: ['bus'],
+    approximateCoordinate: [121.0144, 14.8839],
+    routeEndpointCoordinate: [121.0144, 14.8839],
+    recommendedMapboxQuery: 'Del Carmen Bus Terminal, Santa Maria, Bulacan, Philippines',
+    coordinatePrecision: 'web_verified_candidate',
+    confidence: 'confirmed',
+    notes: 'Canonical route-truth Norzagaray-side endpoint used by the MVP route set. The current operational anchor is the Del Carmen corridor-side terminal area.',
+    sourceLabel: 'Waze, Del Carmen Bus Terminal',
+    sourceUrl: 'https://www.waze.com/live-map/directions/ph/central-luzon/santa-maria/del-carmen-bus-terminal?to=place.ChIJu262QxKplzMR3YrcxCZ2OeE',
+    linkedTerminalId: 'norzagaray-terminal',
+  },
+  {
     id: 'del-carmen-bus-terminal',
     label: 'Del Carmen Bus Terminal',
     classification: 'operational-terminal',
@@ -54,6 +96,7 @@ export const TRANSPORT_LOCATION_INVENTORY_SEED: TransportLocationSeed[] = [
     isActive: true,
     vehicleServices: ['bus'],
     approximateCoordinate: [121.0144, 14.8839],
+    routeEndpointCoordinate: [121.0144, 14.8839],
     recommendedMapboxQuery: 'Del Carmen Bus Terminal, Santa Maria, Bulacan, Philippines',
     coordinatePrecision: 'web_verified_candidate',
     confidence: 'confirmed',
@@ -134,6 +177,7 @@ export const TRANSPORT_LOCATION_INVENTORY_SEED: TransportLocationSeed[] = [
     isActive: true,
     vehicleServices: ['jeep'],
     approximateCoordinate: [120.9588, 14.8178],
+    routeEndpointCoordinate: [120.9588, 14.8178],
     recommendedMapboxQuery: 'New Santa Maria Jeepney Terminal, Santa Maria, Bulacan, Philippines',
     coordinatePrecision: 'web_verified_candidate',
     confidence: 'confirmed',
@@ -214,6 +258,7 @@ export const TRANSPORT_LOCATION_INVENTORY_SEED: TransportLocationSeed[] = [
     isActive: true,
     vehicleServices: ['jeep'],
     approximateCoordinate: [120.9978, 14.8459],
+    routeEndpointCoordinate: [120.9978, 14.8459],
     recommendedMapboxQuery: 'Halang Terminal, Santa Maria, Bulacan, Philippines',
     coordinatePrecision: 'needs_field_validation',
     confidence: 'likely',
@@ -245,13 +290,14 @@ export const TRANSPORT_LOCATION_INVENTORY_SEED: TransportLocationSeed[] = [
     endpointReady: false,
     isActive: true,
     vehicleServices: ['jeep'],
-    approximateCoordinate: [121.0574, 14.8599],
-    recommendedMapboxQuery: 'Sapang Palay Sta. Maria Jeep Terminal, San Jose del Monte, Bulacan, Philippines',
-    coordinatePrecision: 'approximate',
+    approximateCoordinate: [121.050994, 14.849314],
+    routeEndpointCoordinate: [121.050994, 14.849314],
+    recommendedMapboxQuery: 'Victory Town Center Mall, Matiyaga Street, San Jose del Monte, Bulacan, Philippines',
+    coordinatePrecision: 'web_verified_candidate',
     confidence: 'likely',
-    notes: 'Likely San Jose del Monte-side external endpoint. Until a distinct Sapang Palay branch is seeded, resolve it through the San Jose operational corridor.',
-    sourceLabel: 'Waze, Sapang Palay-Sta. Maria Jeep Terminal',
-    sourceUrl: 'https://www.waze.com/live-map/directions/ph/central-luzon/sjdm/sapang-palay-sta-maria-jeep-terminal?to=place.ChIJd3R5CQGplzMRjKVTukULsTQ',
+    notes: 'Likely San Jose del Monte-side external endpoint that should share the same route-truth endpoint and visible terminal marker near Victory Town Center.',
+    sourceLabel: 'Victory Town Center San Jose Bulacan, Matiyaga Street',
+    sourceUrl: 'https://philippines.worldplaces.me/shopping-malls-in-san-jose-del-monte/52138547-victory-town-center-san-jose-bulacan.html',
     linkedTerminalId: 'san-jose-terminal',
   },
   {
@@ -261,13 +307,14 @@ export const TRANSPORT_LOCATION_INVENTORY_SEED: TransportLocationSeed[] = [
     endpointReady: true,
     isActive: true,
     vehicleServices: ['jeep'],
-    approximateCoordinate: [121.0142, 14.8741],
-    recommendedMapboxQuery: 'San Jose Terminal, San Jose del Monte, Bulacan, Philippines',
-    coordinatePrecision: 'needs_field_validation',
+    approximateCoordinate: [121.050994, 14.849314],
+    routeEndpointCoordinate: [121.050994, 14.849314],
+    recommendedMapboxQuery: 'Victory Town Center Mall, Matiyaga Street, San Jose del Monte, Bulacan, Philippines',
+    coordinatePrecision: 'web_verified_candidate',
     confidence: 'likely',
-    notes: 'Current route-truth San Jose endpoint used by the MVP route set. Candidate aliases like Muzon and Sapang Palay resolve through this terminal until distinct branches are seeded.',
-    sourceLabel: 'LARGA route truth terminal seed',
-    sourceUrl: 'internal://transport-catalog/san-jose-terminal',
+    notes: 'Current route-truth San Jose endpoint used by the MVP route set. The road-following corridor should stay on the main road near Shell Patag and continue all the way to the terminal marker.',
+    sourceLabel: 'Victory Town Center San Jose Bulacan, Matiyaga Street',
+    sourceUrl: 'https://philippines.worldplaces.me/shopping-malls-in-san-jose-del-monte/52138547-victory-town-center-san-jose-bulacan.html',
     linkedTerminalId: 'san-jose-terminal',
   },
   {
@@ -308,6 +355,53 @@ export const ENDPOINT_READY_TRANSPORT_LOCATION_SEED = TRANSPORT_LOCATION_INVENTO
   (location) => location.endpointReady,
 );
 
+export function getTransportLocationById(locationId: string) {
+  return TRANSPORT_LOCATION_INVENTORY_SEED.find((location) => location.id === locationId) ?? null;
+}
+
+function getRouteTruthTerminalLocation(terminalId: string) {
+  const locationId = ROUTE_TRUTH_TERMINAL_LOCATION_IDS[terminalId as keyof typeof ROUTE_TRUTH_TERMINAL_LOCATION_IDS];
+
+  if (!locationId) {
+    throw new Error(`Missing route-truth terminal location mapping for ${terminalId}.`);
+  }
+
+  const location = getTransportLocationById(locationId);
+
+  if (!location) {
+    throw new Error(`Missing route-truth terminal location record for ${terminalId}.`);
+  }
+
+  return location;
+}
+
+export function getRouteTruthTerminalMarkerCoordinate(terminalId: string): RouteCoordinate {
+  const location = getRouteTruthTerminalLocation(terminalId);
+
+  if (!location.approximateCoordinate) {
+    throw new Error(`Missing route-truth terminal marker coordinate for ${terminalId}.`);
+  }
+
+  return [...location.approximateCoordinate];
+}
+
+export function getRouteTruthTerminalCoordinate(terminalId: string): RouteCoordinate {
+  const location = getRouteTruthTerminalLocation(terminalId);
+  const coordinate = location.routeEndpointCoordinate ?? location.approximateCoordinate;
+
+  if (!coordinate) {
+    throw new Error(`Missing route-truth terminal endpoint coordinate for ${terminalId}.`);
+  }
+
+  return [...coordinate];
+}
+
+export const MAX_TERMINAL_ENDPOINT_ALIGNMENT_DISTANCE_METERS = 75;
+
+export function getMaxTerminalEndpointAlignmentDistanceMeters(terminalId: string) {
+  return MAX_TERMINAL_ENDPOINT_ALIGNMENT_DISTANCE_METERS;
+}
+
 export const REFERENCE_ROUTE_POINT_SEED = TRANSPORT_LOCATION_INVENTORY_SEED.filter(
   (location) => location.classification === 'reference-route-point',
 );
@@ -330,6 +424,10 @@ const INVENTORY_LINKED_TERMINAL_IDS = new Set(
   TRANSPORT_LOCATION_INVENTORY_SEED.flatMap((location) => (
     location.linkedTerminalId ? [location.linkedTerminalId] : []
   )),
+);
+
+const CANONICAL_ROUTE_TRUTH_LOCATION_IDS = new Set<string>(
+  Object.values(ROUTE_TRUTH_TERMINAL_LOCATION_IDS),
 );
 
 export function isEndpointReadyTerminalId(terminalId: string) {
@@ -361,5 +459,10 @@ export function getSelectableInventoryLocationsForTerminalIds(terminalIds: Set<s
     location.classification !== 'reference-route-point'
     && location.linkedTerminalId !== null
     && terminalIds.has(location.linkedTerminalId)
+    && (
+      location.classification === 'operational-terminal-candidate'
+      || !CANONICAL_ROUTE_TRUTH_LOCATION_IDS.has(location.linkedTerminalId)
+      || location.id === location.linkedTerminalId
+    )
   ));
 }
