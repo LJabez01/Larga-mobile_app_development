@@ -43,6 +43,7 @@ export const COMMUTER_ICON: ImageSourcePropType = require('@/assets/images/commu
 let cachedMapboxModule: MapboxModule | null | undefined;
 let mapboxReadyPromise: Promise<MapboxModule | null> | null = null;
 
+// Mapbox Module Accessor - loads RN Mapbox only when the native module is available in the current build.
 export function getMapbox(): MapboxModule | null {
   if (cachedMapboxModule !== undefined) {
     return cachedMapboxModule;
@@ -57,6 +58,7 @@ export function getMapbox(): MapboxModule | null {
   }
 }
 
+// Mapbox Setup - configures the shared access token once before any map screen renders.
 export async function ensureMapboxConfigured() {
   if (mapboxReadyPromise) {
     return mapboxReadyPromise;

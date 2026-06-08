@@ -9,6 +9,7 @@ import {
 import { ROUTE_SEED, TERMINAL_SEED } from '@/lib/seed/transport-catalog';
 import {
   getMaxTerminalEndpointAlignmentDistanceMeters,
+  getTransportLocationCoordinate,
   getRouteTruthTerminalCoordinate,
   getRouteTruthTerminalMarkerCoordinate,
 } from '@/lib/seed/transport-location-inventory';
@@ -18,6 +19,7 @@ import {
   reverseRouteCoordinates,
 } from '@/lib/seed/transport-route-templates';
 
+// Test Coordinate Distance - compares route and waypoint proximity in coordinate degrees.
 function getCoordinateDistance(
   left: [number, number],
   right: [number, number],
@@ -28,6 +30,7 @@ function getCoordinateDistance(
   return Math.sqrt((longitudeDistance ** 2) + (latitudeDistance ** 2));
 }
 
+// Test Coordinate Finder - locates an exact coordinate inside a generated route geometry.
 function findCoordinateIndex(
   coordinates: Array<[number, number]>,
   target: [number, number],
@@ -217,4 +220,28 @@ test('sta maria norzagaray corridor stays on Norzagaray-Sta. Maria Road instead 
   assert.equal(findCoordinateIndex(norzagarayRoute.coordinates, eastDetourCoordinate), -1);
   assert.equal(findCoordinateIndex(norzagarayRoute.coordinates, eastDetourLoopCoordinate), -1);
   assert.notEqual(findCoordinateIndex(norzagarayRoute.coordinates, mainRoadCoordinate), -1);
+});
+
+test('norzagaray routes do not advertise the unconfirmed San Jose Patag access corridor', () => {
+  const forwardRoute = ROUTE_SEED.find((route) => route.id === 'sta-maria-bayan-norzagaray');
+  const reverseRoute = ROUTE_SEED.find((route) => route.id === 'norzagaray-sta-maria-bayan');
+  const burgundyHomesCoordinate = getTransportLocationCoordinate('burgundy-homes-route-point');
+
+  assert.ok(forwardRoute, 'Expected sta-maria-bayan-norzagaray to exist');
+  assert.ok(reverseRoute, 'Expected norzagaray-sta-maria-bayan to exist');
+  assert.equal(
+    forwardRoute.reconnectAccessCoordinates,
+    null,
+    'Do not force Sta. Maria to Norzagaray off-route guidance through the unconfirmed San Jose Patag/Burgundy corridor',
+  );
+  assert.equal(
+    reverseRoute.reconnectAccessCoordinates,
+    null,
+    'Do not force Norzagaray to Sta. Maria off-route guidance through the unconfirmed San Jose Patag/Burgundy corridor',
+  );
+  assert.equal(
+    findCoordinateIndex(forwardRoute.coordinates, burgundyHomesCoordinate),
+    -1,
+    'Expected Burgundy Homes to stay out of the official Norzagaray corridor spine',
+  );
 });

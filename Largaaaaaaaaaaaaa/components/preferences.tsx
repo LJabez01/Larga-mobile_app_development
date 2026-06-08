@@ -13,6 +13,7 @@ type Props = {
   onBack: () => void;
 };
 
+// Preferences Screen - displays notification and appearance settings.
 export default function PreferencesScreen({ onBack }: Props) {
   const [appearance, setAppearance] = useState<"dark" | "light">("dark");
 

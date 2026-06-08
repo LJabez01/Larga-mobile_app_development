@@ -4,6 +4,7 @@ import { Redirect, type Href } from 'expo-router';
 
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 
+// Root Index - routes users from splash into the correct authenticated or public flow.
 export default function RootIndex() {
   const { session, status } = useAppSession();
 

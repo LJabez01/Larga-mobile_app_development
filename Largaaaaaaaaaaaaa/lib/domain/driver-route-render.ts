@@ -15,6 +15,7 @@ interface BuildDriverRouteRenderModelInput {
   destinationCoordinate: RouteCoordinate | null;
 }
 
+// Renderable Coordinate Normalizer - hides route lines that do not have enough points to draw.
 function normalizeRenderableCoordinates(coordinates: RouteCoordinate[] | null | undefined) {
   if (!coordinates || coordinates.length < 2) {
     return null;
@@ -23,6 +24,7 @@ function normalizeRenderableCoordinates(coordinates: RouteCoordinate[] | null | 
   return coordinates;
 }
 
+// Driver Route Render Model - prepares active route, connector, and bounds data for the map layers.
 export function buildDriverRouteRenderModel({
   activeRouteId,
   guidance,

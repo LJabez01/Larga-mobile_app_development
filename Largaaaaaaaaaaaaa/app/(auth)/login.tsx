@@ -32,6 +32,7 @@ function getFriendlyAuthError(error: unknown) {
   return 'Something went wrong. Please try again.';
 }
 
+// Login Screen - validates credentials and starts the Firebase-backed sign-in flow.
 export default function LoginScreen() {
   // Form State - stores the current field values, validation flags, and submit state.
   const [email, setEmail] = useState('');

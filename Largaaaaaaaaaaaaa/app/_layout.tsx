@@ -18,6 +18,7 @@ export {
 
 SplashScreen.preventAutoHideAsync();
 
+// Root Layout Bootstrap - loads fonts and splash prerequisites before rendering navigation.
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
@@ -41,6 +42,7 @@ export default function RootLayout() {
   return <RootLayoutNav />;
 }
 
+// Root Layout Navigator - wraps routes with theme, session, and live-data providers.
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const [showSplash, setShowSplash] = useState(true);

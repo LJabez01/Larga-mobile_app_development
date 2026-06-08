@@ -57,12 +57,14 @@ function notify() {
   listeners.forEach((listener) => listener(currentSnapshot));
 }
 
+// Snapshot Update - stores the latest auth state and immediately broadcasts it.
 function updateSnapshot(snapshot: AuthSnapshot): AuthSnapshot {
   currentSnapshot = snapshot;
   notify();
   return currentSnapshot;
 }
 
+// Registration Role State - translates requested signup role into approved and pending role arrays.
 function getRoleStateFromIntent(requestedRole: RegisterInput['requestedRole']) {
   if (requestedRole === 'Driver') {
     return {
@@ -87,6 +89,7 @@ function getRoleStateFromIntent(requestedRole: RegisterInput['requestedRole']) {
   };
 }
 
+// User Document Normalizer - supports legacy role fields while returning the modern session profile shape.
 function normalizeUserDocument(user: Pick<User, 'uid' | 'email' | 'displayName'>, data: Partial<FirebaseUserDocument>, preferredName?: string) {
   const legacyRole = typeof data.role === 'string' && isAppRole(data.role) ? data.role : null;
   const approvedRoles = normalizeApprovedRoles(data.approvedRoles);
@@ -232,6 +235,7 @@ async function ensureUserDocument(user: Pick<User, 'uid' | 'email' | 'displayNam
 
 // Firebase Auth Adapter - exposes the shared auth contract using real Firebase behavior.
 export const firebaseAuthService: AuthService = {
+  // Session Fetch - hydrates the current Firebase user into the shared auth snapshot.
   async getSession() {
     ensureSubscribed();
 
@@ -247,6 +251,7 @@ export const firebaseAuthService: AuthService = {
     });
   },
 
+  // Session Subscribe - attaches a listener to shared auth state and returns an unsubscribe callback.
   subscribe(listener) {
     ensureSubscribed();
     listeners.add(listener);
@@ -257,6 +262,7 @@ export const firebaseAuthService: AuthService = {
     };
   },
 
+  // Firebase Sign In - authenticates credentials and syncs the matching Firestore profile.
   async signIn(input: SignInInput) {
     ensureSubscribed();
     const credential = await signInWithEmailAndPassword(auth, input.email.trim(), input.password);
@@ -268,6 +274,7 @@ export const firebaseAuthService: AuthService = {
     });
   },
 
+  // Firebase Register - creates the auth user, profile, and driver application when needed.
   async register(input: RegisterInput) {
     ensureSubscribed();
     const credential = await createUserWithEmailAndPassword(auth, input.email.trim(), input.password);
@@ -307,10 +314,12 @@ export const firebaseAuthService: AuthService = {
     }
   },
 
+  // Password Reset Request - sends Firebase's reset email to the requested account.
   async requestPasswordReset(input) {
     await sendPasswordResetEmail(auth, input.email.trim());
   },
 
+  // Firebase Sign Out - clears the active user and publishes a signed-out snapshot.
   async signOut() {
     await firebaseSignOut(auth);
 
@@ -320,6 +329,7 @@ export const firebaseAuthService: AuthService = {
     });
   },
 
+  // Auth Reset - signs out any current user and resets local auth state for tests/dev flows.
   async reset() {
     if (auth.currentUser) {
       await firebaseSignOut(auth);

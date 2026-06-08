@@ -12,6 +12,7 @@ type Props = {
   onBack: () => void;
 };
 
+// About Screen - presents app background sections and a back action.
 export default function AboutUsScreen({ onBack }: Props) {
   const sections = [
     {

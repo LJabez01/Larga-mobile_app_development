@@ -5,6 +5,7 @@ import { createEmptyDriverSelection } from '@/lib/domain/transport';
 import type {
   DriverTerminalSelectionInput,
   LiveDataSnapshot,
+  PublishCommuterPresenceInput,
   PublishDriverLocationInput,
   StartTripInput,
 } from '@/services/contracts/live-data';
@@ -17,6 +18,8 @@ interface LiveDataContextValue {
   startTrip: (input?: StartTripInput) => Promise<LiveDataSnapshot>;
   endTrip: () => Promise<LiveDataSnapshot>;
   publishDriverLocation: (input: PublishDriverLocationInput) => Promise<LiveDataSnapshot>;
+  publishCommuterPresence: (input: PublishCommuterPresenceInput) => Promise<LiveDataSnapshot>;
+  clearCommuterPresence: () => Promise<LiveDataSnapshot>;
   reset: () => Promise<LiveDataSnapshot>;
 }
 
@@ -25,6 +28,9 @@ const fallbackSnapshot: LiveDataSnapshot = {
   routes: ROUTE_FIXTURES.map((route) => ({ ...route })),
   activeTrip: null,
   driverGuidance: null,
+  commuterPresence: null,
+  commuterVisibleVehicles: [],
+  driverVisibleCommuters: [],
   vehicles: [],
   driverSelection: createEmptyDriverSelection(),
   notificationsByRole: {
@@ -35,6 +41,7 @@ const fallbackSnapshot: LiveDataSnapshot = {
 
 const LiveDataContext = createContext<LiveDataContextValue | undefined>(undefined);
 
+// Live Data Provider - hydrates live route/trip state and exposes live-data actions to map screens.
 export function LiveDataProvider({ children }: { children: ReactNode }) {
   // Live Snapshot State - stores the current live-data view used by the app screens.
   const [snapshot, setSnapshot] = useState<LiveDataSnapshot>(fallbackSnapshot);
@@ -69,6 +76,8 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
       startTrip: liveDataService.startTrip,
       endTrip: liveDataService.endTrip,
       publishDriverLocation: liveDataService.publishDriverLocation,
+      publishCommuterPresence: liveDataService.publishCommuterPresence,
+      clearCommuterPresence: liveDataService.clearCommuterPresence,
       reset: liveDataService.reset,
     }),
     [snapshot],
@@ -81,6 +90,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Live Data Hook - reads the shared live-data context for driver and commuter experiences.
 export function useLiveData() {
   // Context Guard - ensures live-data consumers are used inside the provider tree.
   const context = useContext(LiveDataContext);

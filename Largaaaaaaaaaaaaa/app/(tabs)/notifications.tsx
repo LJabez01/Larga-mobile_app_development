@@ -5,6 +5,7 @@ import NotificationsScreen from '@/components/notifications';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 import { useLiveData } from '@/components/providers/LiveDataProvider';
 
+// Notifications Page - hosts the notification center inside the tab shell.
 export default function NotificationsPage() {
   const router = useRouter();
   const { session, status } = useAppSession();

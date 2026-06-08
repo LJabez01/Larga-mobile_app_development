@@ -21,6 +21,7 @@ export interface AppUserDocument {
   readonly updatedAt: string;
 }
 
+// User Document Guard - validates legacy and modern Firestore user profile role shapes.
 export function isAppUserDocument(value: unknown): value is AppUserDocument {
   if (!value || typeof value !== 'object') {
     return false;

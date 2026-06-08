@@ -24,6 +24,7 @@ import { validateRegistrationForm, type RegistrationRole, type VehicleType } fro
 const PRIMARY_COLOR = '#10B981';
 const ERROR_COLOR = '#EF4444';
 
+// Create Account Screen - collects commuter and optional driver registration details.
 export default function CreateAccountScreen() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -84,6 +85,7 @@ export default function CreateAccountScreen() {
     return <Redirect href={getDefaultAppPath(session) as Href} />;
   }
 
+  // Registration ID Picker - requests media permissions and starts camera or gallery capture for driver IDs.
   async function pickImage() {
     const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
@@ -127,6 +129,7 @@ export default function CreateAccountScreen() {
     ]);
   }
 
+  // Role Selection Handler - updates the requested role and clears driver-only fields for commuters.
   function handleRoleSelection(role: RegistrationRole) {
     setSelectedRole(role);
     setRoleOpen(false);
@@ -140,12 +143,14 @@ export default function CreateAccountScreen() {
     }
   }
 
+  // Registration ID Crop Complete - stores the cropped driver ID image for submission.
   function handleCropComplete(croppedUri: string) {
     setIdImage(croppedUri);
     setShowCropper(false);
     setCroppingImage(null);
   }
 
+  // Account Creation Submit - validates the form and creates the requested Firebase-backed account.
   const handleCreateAccount = async () => {
     setSubmitted(true);
 

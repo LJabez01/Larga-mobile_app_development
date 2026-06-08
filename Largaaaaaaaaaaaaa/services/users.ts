@@ -18,6 +18,7 @@ interface BuildUserDocumentInput {
   readonly now?: string;
 }
 
+// Fallback Display Name - derives a readable name from an email when no profile name exists.
 export function buildFallbackDisplayName(email: string): string {
   const localPart = email.split('@')[0]?.trim() ?? '';
 
@@ -32,6 +33,7 @@ export function buildFallbackDisplayName(email: string): string {
     .join(' ');
 }
 
+// User Document Builder - creates the default Firestore profile for a newly signed-in user.
 export function buildUserDocument(input: BuildUserDocumentInput): AppUserDocument {
   const timestamp = input.now ?? new Date().toISOString();
   const approvedRoles = input.approvedRoles ?? ['commuter'];
@@ -50,6 +52,7 @@ export function buildUserDocument(input: BuildUserDocumentInput): AppUserDocumen
   };
 }
 
+// Display Name Resolver - chooses a preferred, provider, or email-derived display name.
 export function resolveDisplayName(user: Pick<User, 'email' | 'displayName'>, preferredName?: string | null): string {
   const candidate = preferredName?.trim() || user.displayName?.trim();
 
@@ -64,6 +67,7 @@ export function resolveDisplayName(user: Pick<User, 'email' | 'displayName'>, pr
   return buildFallbackDisplayName(user.email);
 }
 
+// Display Name Sync Check - detects when a stored profile should receive a newer display name.
 export function shouldSyncDisplayName(
   profile: AppUserDocument,
   nextDisplayName?: string | null
@@ -73,6 +77,7 @@ export function shouldSyncDisplayName(
   return Boolean(normalizedDisplayName && normalizedDisplayName !== profile.displayName);
 }
 
+// Display Name Sync - returns an updated profile when the incoming display name is meaningful.
 export function syncUserDisplayName(
   profile: AppUserDocument,
   nextDisplayName: string,
@@ -91,6 +96,7 @@ export function syncUserDisplayName(
   };
 }
 
+// User Document Parser - enforces the app user profile contract on Firestore reads.
 function parseUserDocument(value: unknown): AppUserDocument {
   if (!isAppUserDocument(value)) {
     throw new Error('User profile is missing required fields.');
@@ -99,12 +105,14 @@ function parseUserDocument(value: unknown): AppUserDocument {
   return value;
 }
 
+// Firestore Instance Loader - resolves the legacy Firestore singleton only when user helpers are used.
 function getDb(): Firestore {
   const { db } = require('../firebase') as { db: Firestore };
 
   return db;
 }
 
+// User Document Lookup - reads and validates one user profile by uid.
 export async function getUserDocument(uid: string): Promise<AppUserDocument | null> {
   const snapshot = await getDoc(doc(getDb(), 'users', uid));
 
@@ -115,6 +123,7 @@ export async function getUserDocument(uid: string): Promise<AppUserDocument | nu
   return parseUserDocument(snapshot.data());
 }
 
+// User Document Upsert - creates the profile once and later syncs only safe display-name changes.
 export async function ensureUserDocument(
   user: Pick<User, 'uid' | 'email' | 'displayName'>,
   options: EnsureUserOptions = {}

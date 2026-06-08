@@ -122,6 +122,38 @@ export const TRANSPORT_LOCATION_INVENTORY_SEED: TransportLocationSeed[] = [
     linkedTerminalId: null,
   },
   {
+    id: 'burgundy-homes-route-point',
+    label: 'Burgundy Homes Route Point',
+    classification: 'reference-route-point',
+    endpointReady: false,
+    isActive: true,
+    vehicleServices: ['jeep', 'bus'],
+    approximateCoordinate: [120.97583, 14.82685],
+    recommendedMapboxQuery: 'Burgundy Homes, Santa Maria, Bulacan, Philippines',
+    coordinatePrecision: 'web_verified_candidate',
+    confidence: 'confirmed',
+    notes: 'Operational reconnect guide point for the Norzagaray corridor when large vehicles approach from San Jose Patag. Use it to bias off-route guidance onto the wider Burgundy-side access roads instead of local school-side shortcuts.',
+    sourceLabel: 'Mapcarta, Burgundy Homes',
+    sourceUrl: 'https://mapcarta.com/N4723651889',
+    linkedTerminalId: null,
+  },
+  {
+    id: 'amber-homes-route-point',
+    label: 'Amber Homes Road Access Point',
+    classification: 'reference-route-point',
+    endpointReady: false,
+    isActive: true,
+    vehicleServices: ['jeep', 'bus'],
+    approximateCoordinate: [120.966048, 14.831721],
+    recommendedMapboxQuery: 'Amber Homes, Santa Maria, Bulacan, Philippines',
+    coordinatePrecision: 'web_verified_candidate',
+    confidence: 'confirmed',
+    notes: 'Operational reconnect guide point on the Amber-side road access into Norzagaray-Santa Maria Road. Keep this on the through-road approach, not inside the Amber Homes place area, so dashed guidance does not branch into the subdivision before rejoining the official route spine.',
+    sourceLabel: 'LARGA route truth, Amber Homes road access',
+    sourceUrl: 'internal://transport-catalog/amber-homes-road-access',
+    linkedTerminalId: null,
+  },
+  {
     id: 'caypombo-p2p-bus-terminal',
     label: 'Caypombo P2P Bus Terminal',
     classification: 'operational-terminal',
@@ -355,10 +387,24 @@ export const ENDPOINT_READY_TRANSPORT_LOCATION_SEED = TRANSPORT_LOCATION_INVENTO
   (location) => location.endpointReady,
 );
 
+// Transport Location Lookup - finds an inventory location by ID.
 export function getTransportLocationById(locationId: string) {
   return TRANSPORT_LOCATION_INVENTORY_SEED.find((location) => location.id === locationId) ?? null;
 }
 
+// Transport Location Coordinate Resolver - returns the route endpoint or approximate coordinate for a location.
+export function getTransportLocationCoordinate(locationId: string): RouteCoordinate {
+  const location = getTransportLocationById(locationId);
+  const coordinate = location?.routeEndpointCoordinate ?? location?.approximateCoordinate;
+
+  if (!coordinate) {
+    throw new Error(`Missing transport location coordinate for ${locationId}.`);
+  }
+
+  return [...coordinate];
+}
+
+// Route Truth Terminal Lookup - resolves a terminal ID into its canonical inventory location.
 function getRouteTruthTerminalLocation(terminalId: string) {
   const locationId = ROUTE_TRUTH_TERMINAL_LOCATION_IDS[terminalId as keyof typeof ROUTE_TRUTH_TERMINAL_LOCATION_IDS];
 
@@ -375,6 +421,7 @@ function getRouteTruthTerminalLocation(terminalId: string) {
   return location;
 }
 
+// Route Truth Marker Coordinate Resolver - returns the map marker coordinate for a route-truth terminal.
 export function getRouteTruthTerminalMarkerCoordinate(terminalId: string): RouteCoordinate {
   const location = getRouteTruthTerminalLocation(terminalId);
 
@@ -385,6 +432,7 @@ export function getRouteTruthTerminalMarkerCoordinate(terminalId: string): Route
   return [...location.approximateCoordinate];
 }
 
+// Route Truth Endpoint Coordinate Resolver - returns the routing endpoint coordinate for a terminal.
 export function getRouteTruthTerminalCoordinate(terminalId: string): RouteCoordinate {
   const location = getRouteTruthTerminalLocation(terminalId);
   const coordinate = location.routeEndpointCoordinate ?? location.approximateCoordinate;
@@ -398,6 +446,7 @@ export function getRouteTruthTerminalCoordinate(terminalId: string): RouteCoordi
 
 export const MAX_TERMINAL_ENDPOINT_ALIGNMENT_DISTANCE_METERS = 75;
 
+// Terminal Alignment Limit Resolver - returns the maximum endpoint alignment tolerance for a terminal.
 export function getMaxTerminalEndpointAlignmentDistanceMeters(terminalId: string) {
   return MAX_TERMINAL_ENDPOINT_ALIGNMENT_DISTANCE_METERS;
 }
@@ -430,6 +479,7 @@ const CANONICAL_ROUTE_TRUTH_LOCATION_IDS = new Set<string>(
   Object.values(ROUTE_TRUTH_TERMINAL_LOCATION_IDS),
 );
 
+// Endpoint Ready Terminal Check - decides whether a terminal can safely seed route endpoints.
 export function isEndpointReadyTerminalId(terminalId: string) {
   if (!INVENTORY_LINKED_TERMINAL_IDS.has(terminalId)) {
     return true;
@@ -438,6 +488,7 @@ export function isEndpointReadyTerminalId(terminalId: string) {
   return ENDPOINT_READY_TERMINAL_IDS.has(terminalId);
 }
 
+// Selectable Terminal Check - decides whether a terminal should appear in route selection UI.
 export function isSelectableTerminalId(terminalId: string) {
   if (!INVENTORY_LINKED_TERMINAL_IDS.has(terminalId)) {
     return true;
@@ -446,14 +497,17 @@ export function isSelectableTerminalId(terminalId: string) {
   return SELECTABLE_TERMINAL_IDS.has(terminalId);
 }
 
+// Endpoint Ready Terminal Filter - keeps only terminal options safe for endpoint-backed routing.
 export function filterEndpointReadyTerminalOptions(terminals: TerminalOption[]) {
   return terminals.filter((terminal) => isEndpointReadyTerminalId(terminal.id));
 }
 
+// Selectable Terminal Filter - keeps only terminal options intended for user selection.
 export function filterSelectableTerminalOptions(terminals: TerminalOption[]) {
   return terminals.filter((terminal) => isSelectableTerminalId(terminal.id));
 }
 
+// Selectable Inventory Location Resolver - finds visible inventory locations for selected terminal IDs.
 export function getSelectableInventoryLocationsForTerminalIds(terminalIds: Set<string>) {
   return TRANSPORT_LOCATION_INVENTORY_SEED.filter((location) => (
     location.classification !== 'reference-route-point'

@@ -24,6 +24,7 @@ interface ImageCropperProps {
   aspectRatio?: { width: number; height: number };
 }
 
+// Image Cropper - previews the selected ID image and confirms the cropped result.
 export default function ImageCropper({
   visible,
   imageUri,
@@ -34,6 +35,7 @@ export default function ImageCropper({
   const cropAreaWidth = screenWidth - 40;
   const cropAreaHeight = (cropAreaWidth * aspectRatio.height) / aspectRatio.width;
 
+  // Crop Confirm Handler - accepts the current image selection as the cropped output.
   const handleCrop = () => {
     // In a real app, you would use a cropping library like react-native-image-crop-picker
     // For now, we'll pass the image as-is with a message to the user

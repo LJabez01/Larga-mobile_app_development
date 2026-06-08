@@ -25,6 +25,7 @@ export interface RouteRecord {
   readonly updatedAt: string;
 }
 
+// Direction Key Builder - creates the canonical origin-to-destination key used by route records.
 export function buildDirectionKey(
   originTerminalId: string,
   destinationTerminalId: string
@@ -32,6 +33,7 @@ export function buildDirectionKey(
   return `${originTerminalId}__${destinationTerminalId}`;
 }
 
+// Route ID Builder - combines vehicle type and direction key into a stable transport route id.
 export function buildRouteId(
   vehicleType: VehicleType,
   originTerminalId: string,
@@ -40,6 +42,7 @@ export function buildRouteId(
   return `${vehicleType}__${buildDirectionKey(originTerminalId, destinationTerminalId)}`;
 }
 
+// Vehicle Type Guard - accepts only vehicle categories supported by the transport catalog.
 export function isVehicleTypeSupported(value: string): value is VehicleType {
   return value === 'jeepney' || value === 'bus';
 }

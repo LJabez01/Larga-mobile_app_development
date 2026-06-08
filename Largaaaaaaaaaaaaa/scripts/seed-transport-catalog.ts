@@ -6,6 +6,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 import { buildTransportSeedPayload, resolveTransportSeedConfig } from '@/lib/seed/transport-catalog-sync';
 
+// Admin App Factory - initializes Firebase Admin for emulator or live Firestore catalog sync.
 function getAdminApp(projectId: string, serviceAccountPath: string | null, usesEmulator: boolean) {
   if (getApps().length > 0) {
     return getApp();
@@ -25,6 +26,7 @@ function getAdminApp(projectId: string, serviceAccountPath: string | null, usesE
   });
 }
 
+// Comparison Normalizer - sorts object keys recursively before seed-vs-live comparisons.
 function normalizeForComparison(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => normalizeForComparison(item));
@@ -42,10 +44,12 @@ function normalizeForComparison(value: unknown): unknown {
   return value;
 }
 
+// Seed Field Equality Check - compares normalized seed and Firestore field values.
 function areSeedFieldValuesEqual(left: unknown, right: unknown) {
   return JSON.stringify(normalizeForComparison(left)) === JSON.stringify(normalizeForComparison(right));
 }
 
+// Document Diff Builder - reports missing or changed Firestore seed fields.
 function buildDocumentDiff(
   collectionName: string,
   documentId: string,
@@ -67,6 +71,7 @@ function buildDocumentDiff(
   return `${collectionName}/${documentId} differs on: ${changedFields.join(', ')}`;
 }
 
+// Transport Seed Entry Point - dry-runs, checks, or writes the terminal and route catalog.
 async function main() {
   const config = resolveTransportSeedConfig(process.argv.slice(2), process.cwd());
   const payload = buildTransportSeedPayload();

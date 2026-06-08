@@ -37,6 +37,7 @@ const faqs = [
   },
 ];
 
+// FAQ Item - renders one expandable question and answer row.
 function FAQItem({
   question,
   answer,
@@ -71,6 +72,7 @@ function FAQItem({
   );
 }
 
+// FAQs Screen - displays the FAQ list and tracks which item is open.
 export default function FAQsScreen({ onBack }: Props) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 

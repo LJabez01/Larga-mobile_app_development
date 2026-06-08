@@ -20,12 +20,14 @@ export interface RegisterCommuterInput extends SignInInput {
   readonly displayName: string;
 }
 
+// Auth Instance Loader - resolves the legacy Firebase Auth singleton only when auth helpers are used.
 function getAuthInstance(): Auth {
   const { auth } = require('../firebase') as { auth: Auth };
 
   return auth;
 }
 
+// Firebase Error Guard - narrows unknown errors to Firebase Auth errors with codes.
 function isFirebaseError(error: unknown): error is AuthError {
   return (
     Boolean(error) &&
@@ -34,6 +36,7 @@ function isFirebaseError(error: unknown): error is AuthError {
   );
 }
 
+// Auth Error Message - converts Firebase Auth codes into user-facing form messages.
 export function getAuthErrorMessage(error: unknown): string {
   if (!isFirebaseError(error)) {
     return 'Something went wrong. Please try again.';
@@ -59,6 +62,7 @@ export function getAuthErrorMessage(error: unknown): string {
   }
 }
 
+// Email Sign In - authenticates an existing user through Firebase Auth.
 export async function signInWithEmail(input: SignInInput): Promise<void> {
   await signInWithEmailAndPassword(
     getAuthInstance(),
@@ -67,6 +71,7 @@ export async function signInWithEmail(input: SignInInput): Promise<void> {
   );
 }
 
+// Commuter Registration - creates a Firebase user and ensures the matching Firestore profile exists.
 export async function registerCommuter(input: RegisterCommuterInput): Promise<void> {
   const credential = await createUserWithEmailAndPassword(
     getAuthInstance(),
@@ -87,10 +92,12 @@ export async function registerCommuter(input: RegisterCommuterInput): Promise<vo
   });
 }
 
+// Password Reset - sends Firebase's password reset email for the provided account.
 export async function sendPasswordReset(input: Pick<SignInInput, 'email'>): Promise<void> {
   await sendPasswordResetEmail(getAuthInstance(), input.email.trim());
 }
 
+// Current User Sign Out - signs out the active Firebase Auth user.
 export async function signOutCurrentUser(): Promise<void> {
   await signOut(getAuthInstance());
 }

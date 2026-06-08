@@ -7,6 +7,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 import { loadOptionalEnvFile, resolveTransportSeedConfig } from '@/lib/seed/transport-catalog-sync';
 
+// Admin App Factory - initializes Firebase Admin with service-account credentials when needed.
 function getAdminApp(projectId: string, serviceAccountPath: string | null, usesEmulator: boolean) {
   if (getApps().length > 0) {
     return getApp();
@@ -26,6 +27,7 @@ function getAdminApp(projectId: string, serviceAccountPath: string | null, usesE
   });
 }
 
+// Admin Seed Input Resolver - combines seed config and env credentials for the target admin account.
 function resolveAdminSeedInput(cwd: string) {
   const config = resolveTransportSeedConfig(process.argv.slice(2), cwd);
   const seedEnv = loadOptionalEnvFile(config.envFilePath);
@@ -54,6 +56,7 @@ function resolveAdminSeedInput(cwd: string) {
   };
 }
 
+// Admin Seed Entry Point - dry-runs or provisions the trusted admin user and profile document.
 async function main() {
   const input = resolveAdminSeedInput(process.cwd());
 

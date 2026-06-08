@@ -5,6 +5,7 @@ import {
   getCoordinateDistance,
   getCoordinateDistanceMeters,
   getPathDistanceMeters,
+  projectCoordinateOntoSegment,
   getSegmentBearingDegrees,
   mergeRouteCoordinateSegments,
   sliceRouteFromProjection,
@@ -50,6 +51,7 @@ export interface RouteRecord {
   destinationTerminalId: string;
   vehicleType: VehicleType;
   coordinates: RouteCoordinate[];
+  reconnectAccessCoordinates?: RouteCoordinate[] | null;
   isActive: boolean;
 }
 
@@ -96,7 +98,9 @@ export const DRIVER_GUIDANCE_TERMINAL_START_SEGMENT_WINDOW = 8;
 const DRIVER_GUIDANCE_CORRIDOR_ANCHOR_SPACING_METERS = 1_200;
 const DRIVER_GUIDANCE_CORRIDOR_TURN_THRESHOLD_DEGREES = 20;
 const DRIVER_GUIDANCE_MIN_TURN_ANCHOR_SPACING_METERS = 200;
+const DRIVER_GUIDANCE_START_CORRIDOR_REJOIN_TOLERANCE_METERS = 40;
 
+// Driver Selection Builder - creates the terminal/location pair state before resolving a route.
 export function createDriverSelection(
   originTerminalId: string | null,
   destinationTerminalId: string | null,
@@ -113,10 +117,12 @@ export function createDriverSelection(
   };
 }
 
+// Empty Driver Selection - resets trip setup to no selected origin or destination.
 export function createEmptyDriverSelection(): DriverSelectionState {
   return createDriverSelection(null, null);
 }
 
+// Distinct Terminal Guard - confirms a usable origin/destination pair for route lookup.
 export function isDistinctTerminalPair(
   originTerminalId: string | null,
   destinationTerminalId: string | null,
@@ -124,10 +130,12 @@ export function isDistinctTerminalPair(
   return Boolean(originTerminalId && destinationTerminalId && originTerminalId !== destinationTerminalId);
 }
 
+// Direction Key Builder - creates the live-data direction key used by route resolution.
 export function buildDirectionKey(originTerminalId: string, destinationTerminalId: string) {
   return `${originTerminalId}::${destinationTerminalId}`;
 }
 
+// Reverse Selection Builder - swaps origin and destination when a driver reverses direction.
 export function buildReverseDriverSelection(
   originTerminalId: string,
   destinationTerminalId: string,
@@ -142,6 +150,7 @@ export function buildReverseDriverSelection(
   );
 }
 
+// Vehicle Freshness Guard - keeps stale vehicle locations out of live map visibility.
 export function isVehicleLocationFresh(recordedAt: string, now = Date.now()) {
   const recordedAtMs = Date.parse(recordedAt);
 
@@ -152,6 +161,7 @@ export function isVehicleLocationFresh(recordedAt: string, now = Date.now()) {
   return now - recordedAtMs <= VEHICLE_FRESHNESS_WINDOW_MS;
 }
 
+// Guidance Progress Start - backs up the search window so route snapping can recover from small drift.
 function normalizeGuidanceProgressStartIndex(
   routeCoordinates: RouteCoordinate[],
   currentProgressSegmentIndex: number | null,
@@ -173,12 +183,14 @@ function normalizeGuidanceProgressStartIndex(
   );
 }
 
+// Timestamp Parser - converts persisted guidance timestamps into comparable millisecond values.
 function parseTimestampMs(value: string) {
   const timestampMs = Date.parse(value);
 
   return Number.isFinite(timestampMs) ? timestampMs : null;
 }
 
+// Nearest Coordinate Index - finds the closest stored route point to a live coordinate.
 export function findNearestRouteCoordinateIndex(
   coordinates: RouteCoordinate[],
   currentCoordinate: RouteCoordinate,
@@ -202,6 +214,7 @@ export function findNearestRouteCoordinateIndex(
   return nearestIndex;
 }
 
+// Responsive Route Coordinates - slices a route to the live snapped point for display.
 export function buildResponsiveRouteCoordinates(
   coordinates: RouteCoordinate[],
   currentCoordinate: RouteCoordinate,
@@ -212,14 +225,24 @@ export function buildResponsiveRouteCoordinates(
   ).remainingCoordinates;
 }
 
-export function buildRouteGeometrySignature(coordinates: ReadonlyArray<RouteCoordinate>) {
-  if (coordinates.length === 0) {
-    return '';
-  }
+// Route Geometry Signature - builds a stable comparison key for route and reconnect geometry changes.
+export function buildRouteGeometrySignature(
+  coordinates: ReadonlyArray<RouteCoordinate>,
+  reconnectAccessCoordinates: ReadonlyArray<RouteCoordinate> | null = null,
+) {
+  const coordinateSignature = coordinates.length === 0
+    ? ''
+    : coordinates
+      .map(([longitude, latitude]) => `${longitude.toFixed(6)},${latitude.toFixed(6)}`)
+      .join('|');
 
-  return coordinates
-    .map(([longitude, latitude]) => `${longitude.toFixed(6)},${latitude.toFixed(6)}`)
-    .join('|');
+  const reconnectAccessSignature = !reconnectAccessCoordinates || reconnectAccessCoordinates.length === 0
+    ? ''
+    : reconnectAccessCoordinates
+      .map(([longitude, latitude]) => `${longitude.toFixed(6)},${latitude.toFixed(6)}`)
+      .join('|');
+
+  return `${coordinateSignature}::${reconnectAccessSignature}`;
 }
 
 export interface DriverGuidancePathPlan {
@@ -229,6 +252,7 @@ export interface DriverGuidancePathPlan {
   offRouteDistanceMeters: number;
 }
 
+// Route Start Corridor Preference - avoids unnecessary reroutes while the driver is still near the terminal.
 export function shouldPreferStoredCorridorAtRouteStart(
   guidancePlan: DriverGuidancePathPlan,
   currentProgressSegmentIndex: number | null = null,
@@ -241,17 +265,109 @@ export function shouldPreferStoredCorridorAtRouteStart(
     && guidancePlan.offRouteDistanceMeters < DRIVER_GUIDANCE_OFF_ROUTE_DISTANCE_METERS;
 }
 
+// Route Slice From Projection - starts the remaining route at an already-computed projection.
+function buildRouteSliceFromProjection(
+  routeCoordinates: RouteCoordinate[],
+  projection: RouteProjection,
+): SliceRouteFromProjectionResult {
+  const remainingCoordinates = routeCoordinates.slice(projection.segmentIndex + 1);
+  const snappedCoordinate = projection.coordinate;
+
+  if (remainingCoordinates.length === 0) {
+    return {
+      remainingCoordinates: [snappedCoordinate],
+      progressSegmentIndex: projection.segmentIndex,
+      snappedCoordinate,
+    };
+  }
+
+  if (areCoordinatesEqual(snappedCoordinate, remainingCoordinates[0])) {
+    return {
+      remainingCoordinates,
+      progressSegmentIndex: projection.segmentIndex,
+      snappedCoordinate,
+    };
+  }
+
+  return {
+    remainingCoordinates: [snappedCoordinate, ...remainingCoordinates],
+    progressSegmentIndex: projection.segmentIndex,
+    snappedCoordinate,
+  };
+}
+
+// Preferred Guidance Slice - chooses the best remaining corridor slice from current driver progress.
+function buildPreferredGuidanceRouteSlice(
+  routeCoordinates: RouteCoordinate[],
+  currentCoordinate: RouteCoordinate,
+  currentProgressSegmentIndex: number | null,
+) {
+  const minimumSegmentIndex = normalizeGuidanceProgressStartIndex(
+    routeCoordinates,
+    currentProgressSegmentIndex,
+  );
+  const nearestProjection = findNearestRouteProjection(
+    routeCoordinates,
+    currentCoordinate,
+    minimumSegmentIndex,
+  );
+
+  if (!nearestProjection) {
+    return sliceRouteFromProjection(
+      routeCoordinates,
+      currentCoordinate,
+      minimumSegmentIndex,
+    );
+  }
+
+  const normalizedProgressSegmentIndex = Math.max(currentProgressSegmentIndex ?? 0, 0);
+
+  if (
+    normalizedProgressSegmentIndex > DRIVER_GUIDANCE_TERMINAL_START_SEGMENT_WINDOW
+    || nearestProjection.segmentIndex <= DRIVER_GUIDANCE_TERMINAL_START_SEGMENT_WINDOW
+  ) {
+    return buildRouteSliceFromProjection(routeCoordinates, nearestProjection);
+  }
+
+  const maxComparableDistanceMeters = nearestProjection.distanceMeters
+    + DRIVER_GUIDANCE_START_CORRIDOR_REJOIN_TOLERANCE_METERS;
+  let preferredProjection = nearestProjection;
+
+  for (let index = minimumSegmentIndex; index <= nearestProjection.segmentIndex; index += 1) {
+    const projectedCoordinate = projectCoordinateOntoSegment(
+      currentCoordinate,
+      routeCoordinates[index],
+      routeCoordinates[index + 1],
+    );
+    const distanceMeters = getCoordinateDistanceMeters(projectedCoordinate, currentCoordinate);
+
+    if (distanceMeters <= maxComparableDistanceMeters) {
+      preferredProjection = {
+        coordinate: projectedCoordinate,
+        segmentIndex: index,
+        distanceDegrees: getCoordinateDistance(projectedCoordinate, currentCoordinate),
+        distanceMeters,
+      };
+      break;
+    }
+  }
+
+  return buildRouteSliceFromProjection(routeCoordinates, preferredProjection);
+}
+
+// Driver Guidance Path Plan - identifies the rejoin point and remaining route to destination.
 export function buildDriverGuidancePathPlan(
   currentCoordinate: RouteCoordinate,
   routeCoordinates: RouteCoordinate[],
   destinationCoordinate: RouteCoordinate,
   currentProgressSegmentIndex: number | null = null,
 ): DriverGuidancePathPlan {
-  const guidanceRoute = sliceRouteFromProjection(
+  const guidanceRoute = buildPreferredGuidanceRouteSlice(
     routeCoordinates,
     currentCoordinate,
-    normalizeGuidanceProgressStartIndex(routeCoordinates, currentProgressSegmentIndex),
+    currentProgressSegmentIndex,
   );
+
   const routeTailCoordinates = guidanceRoute.remainingCoordinates.length > 0
     ? guidanceRoute.remainingCoordinates
     : [destinationCoordinate];
@@ -271,6 +387,7 @@ export function buildDriverGuidancePathPlan(
   };
 }
 
+// Route Distance From Current Point - measures how far a live coordinate is from the assigned corridor.
 export function getRouteDistanceMeters(
   currentCoordinate: RouteCoordinate,
   routeCoordinates: RouteCoordinate[],
@@ -284,6 +401,7 @@ export function getRouteDistanceMeters(
   return getCoordinateDistanceMeters(currentCoordinate, nearestProjection.coordinate);
 }
 
+// Driver Trip Metrics - converts guidance geometry and speed into distance and ETA values.
 export function buildDriverTripMetrics(
   guidance: DriverGuidanceState | null,
   speedKph: number | null,
@@ -325,6 +443,7 @@ export function buildDriverTripMetrics(
   };
 }
 
+// Route Connector Coordinates - draws a connector only when the driver is meaningfully off the route line.
 export function buildRouteConnectorCoordinates(
   currentCoordinate: RouteCoordinate,
   routeCoordinates: RouteCoordinate[],
@@ -342,6 +461,7 @@ export function buildRouteConnectorCoordinates(
   return [currentCoordinate, nearestProjection.coordinate] as RouteCoordinate[];
 }
 
+// Guidance Waypoint Path - compresses the remaining route into Mapbox Directions waypoints.
 export function buildGuidanceWaypointPath(
   currentCoordinate: RouteCoordinate,
   routeCoordinates: RouteCoordinate[],
@@ -429,6 +549,7 @@ interface BuildDriverGuidanceStateInput {
   warningMessage?: string | null;
 }
 
+// Driver Guidance State Factory - creates an immutable guidance snapshot for live, fallback, and unavailable modes.
 function createDriverGuidanceState({
   currentCoordinate,
   destinationCoordinate,
@@ -459,6 +580,7 @@ function createDriverGuidanceState({
   };
 }
 
+// Live Driver Guidance State - stores road-guidance geometry returned from the live directions flow.
 export function buildLiveDriverGuidanceState(
   currentCoordinate: RouteCoordinate,
   destinationCoordinate: RouteCoordinate,
@@ -482,6 +604,7 @@ export function buildLiveDriverGuidanceState(
   });
 }
 
+// Stored Route Fallback State - falls back to the assigned route when live directions cannot be trusted.
 export function buildStoredRouteFallbackGuidanceState(
   currentCoordinate: RouteCoordinate,
   destinationCoordinate: RouteCoordinate,
@@ -505,6 +628,7 @@ export function buildStoredRouteFallbackGuidanceState(
   });
 }
 
+// Route Unavailable State - records that neither live nor fallback guidance is currently usable.
 export function buildRouteUnavailableGuidanceState(
   currentCoordinate: RouteCoordinate,
   destinationCoordinate: RouteCoordinate,
@@ -534,6 +658,7 @@ interface ShouldRefreshDriverGuidanceInput {
   now?: number;
 }
 
+// Driver Guidance Refresh Policy - decides when movement, route drift, or stale data requires rerouting.
 export function shouldRefreshDriverGuidance({
   guidance,
   currentCoordinate,
@@ -583,6 +708,7 @@ export function shouldRefreshDriverGuidance({
     && (now - updatedAtMs) >= DRIVER_GUIDANCE_MIN_REFRESH_INTERVAL_MS;
 }
 
+// Firestore Coordinate Serializer - converts tuple coordinates into Firestore-safe objects.
 export function serializeRouteCoordinates(coordinates: RouteCoordinate[]): FirestoreRouteCoordinate[] {
   return coordinates.map(([longitude, latitude]) => ({
     longitude,
@@ -590,6 +716,7 @@ export function serializeRouteCoordinates(coordinates: RouteCoordinate[]): Fires
   }));
 }
 
+// Firestore Coordinate Deserializer - validates and restores persisted route coordinates.
 export function deserializeRouteCoordinates(value: unknown) {
   if (!Array.isArray(value)) {
     return null;
@@ -616,6 +743,7 @@ export function deserializeRouteCoordinates(value: unknown) {
   return coordinates.length >= 2 ? coordinates : null;
 }
 
+// Terminal Route Resolver - finds the single active route matching a selected terminal pair.
 export function resolveRouteForTerminals(
   routes: RouteRecord[],
   originTerminalId: string | null,
@@ -639,6 +767,7 @@ export function resolveRouteForTerminals(
   return activeMatches[0];
 }
 
+// Selectable Terminal Resolver - limits picker choices to active routes compatible with the counterpart terminal.
 export function getSelectableTerminalIds(
   routes: RouteRecord[],
   target: DriverTerminalTarget,

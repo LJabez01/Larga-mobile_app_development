@@ -27,6 +27,7 @@ const PRIMARY_DARK = '#087443';
 const TEXT = '#111827';
 const MUTED = '#6B7280';
 
+// Long Date Formatter - formats application timestamps for the detail review screen.
 function formatLongDate(value: string) {
   try {
     return new Intl.DateTimeFormat('en-US', {
@@ -41,6 +42,7 @@ function formatLongDate(value: string) {
   }
 }
 
+// Admin Application Detail Screen - loads one driver application for review decisions.
 export default function AdminApplicationDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ applicationId?: string }>();
@@ -114,6 +116,7 @@ export default function AdminApplicationDetailScreen() {
     };
   }, [application?.status]);
 
+  // Review Decision Submit - writes the admin decision and required applicant note when needed.
   async function handleReview(statusValue: 'approved' | 'rejected' | 'needs_resubmission') {
     if (!application || !session) {
       return;

@@ -44,6 +44,7 @@ type MapMarkerIconProps = {
   active?: boolean;
 };
 
+// Map Marker Icon - renders the shared bus, jeep, and commuter marker asset with route-state styling.
 export default function MapMarkerIcon({
   kind,
   size = 'md',

@@ -26,6 +26,7 @@ export interface TransportSeedConfig {
 
 type EnvSource = Record<string, string | undefined>;
 
+// Env Value Normalizer - removes simple wrapping quotes from .env values.
 function stripWrappingQuotes(value: string) {
   if (
     (value.startsWith('"') && value.endsWith('"'))
@@ -37,6 +38,7 @@ function stripWrappingQuotes(value: string) {
   return value;
 }
 
+// Env File Parser - converts .env file contents into key/value seed config.
 export function parseEnvFileContents(contents: string) {
   const entries = contents.split(/\r?\n/);
   const values: Record<string, string> = {};
@@ -65,6 +67,7 @@ export function parseEnvFileContents(contents: string) {
   return values;
 }
 
+// Optional Env Loader - reads an env file when present and returns an empty source when absent.
 export function loadOptionalEnvFile(envFilePath: string) {
   if (!fs.existsSync(envFilePath)) {
     return {};
@@ -73,6 +76,7 @@ export function loadOptionalEnvFile(envFilePath: string) {
   return parseEnvFileContents(fs.readFileSync(envFilePath, 'utf8'));
 }
 
+// Seed Env Source Loader - merges default and requested env files for seed scripts.
 function loadSeedEnvSources(primaryEnvFilePath: string, cwd: string) {
   const sources: EnvSource[] = [];
 
@@ -85,6 +89,7 @@ function loadSeedEnvSources(primaryEnvFilePath: string, cwd: string) {
   return sources;
 }
 
+// Transport Seed Payload Builder - serializes terminal and route records for Firestore writes.
 export function buildTransportSeedPayload(): TransportSeedPayload {
   return {
     terminals: TERMINAL_SEED.map((terminal) => ({
@@ -99,11 +104,15 @@ export function buildTransportSeedPayload(): TransportSeedPayload {
       data: {
         ...route,
         coordinates: serializeRouteCoordinates(route.coordinates),
+        reconnectAccessCoordinates: route.reconnectAccessCoordinates
+          ? serializeRouteCoordinates(route.reconnectAccessCoordinates)
+          : null,
       },
     })),
   };
 }
 
+// Seed CLI Arg Parser - reads apply, check-live, env-file, and project flags.
 function parseArgs(args: string[]) {
   let apply = false;
   let checkLive = false;
@@ -139,6 +148,7 @@ function parseArgs(args: string[]) {
   };
 }
 
+// Transport Seed Config Resolver - combines CLI flags and env sources into validated seed settings.
 export function resolveTransportSeedConfig(args: string[], cwd: string, baseEnv: EnvSource = process.env): TransportSeedConfig {
   const parsedArgs = parseArgs(args);
   const envFilePath = parsedArgs.envFilePath

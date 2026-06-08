@@ -45,6 +45,7 @@ const KNOWN_ROUTE_DETOUR_FIXES = {
   },
 } as const;
 
+// Optional Env Loader - reads a seed env file when available for geometry refresh.
 function loadOptionalEnvFile(envFilePath: string) {
   if (!fs.existsSync(envFilePath)) {
     return {};
@@ -53,6 +54,7 @@ function loadOptionalEnvFile(envFilePath: string) {
   return parseEnvFileContents(fs.readFileSync(envFilePath, 'utf8'));
 }
 
+// Mapbox Token Resolver - combines seed, local, and process env sources for Directions API calls.
 function resolveMapboxAccessToken(cwd: string) {
   const envSource = {
     ...loadOptionalEnvFile(path.resolve(cwd, '.env.seed.local')),
@@ -63,6 +65,7 @@ function resolveMapboxAccessToken(cwd: string) {
   return resolveMapboxDirectionsAccessToken(envSource);
 }
 
+// Coordinate Array Guard - validates the GeoJSON coordinate payload shape from Mapbox.
 function isCoordinateArray(value: unknown): value is RouteCoordinate[] {
   return Array.isArray(value)
     && value.length >= 2
@@ -76,6 +79,7 @@ function isCoordinateArray(value: unknown): value is RouteCoordinate[] {
     );
 }
 
+// Route Geometry Fetcher - requests full driving geometry from Mapbox for a route waypoint set.
 async function fetchRouteGeometry(
   accessToken: string,
   waypoints: RouteCoordinate[],
@@ -108,14 +112,17 @@ async function fetchRouteGeometry(
   );
 }
 
+// Coordinate Formatter - serializes one coordinate for the generated geometry module.
 function formatCoordinate([longitude, latitude]: RouteCoordinate) {
   return `[${longitude.toFixed(6)}, ${latitude.toFixed(6)}]`;
 }
 
+// Coordinate Equality Check - compares exact longitude and latitude pairs for known cleanup anchors.
 function areCoordinatesEqual(left: RouteCoordinate, right: RouteCoordinate) {
   return left[0] === right[0] && left[1] === right[1];
 }
 
+// Known Detour Cleaner - removes manually verified detour slices after automatic sanitizing.
 function removeKnownRouteDetours(
   routeId: string,
   coordinates: RouteCoordinate[],
@@ -151,6 +158,7 @@ function removeKnownRouteDetours(
   ];
 }
 
+// Generated Module Formatter - writes the refreshed geometry snapshot as a TypeScript module.
 function formatGeneratedModule(routeGeometries: Record<string, RouteCoordinate[]>) {
   const entries = Object.entries(routeGeometries)
     .map(([routeId, coordinates]) => {
@@ -172,6 +180,7 @@ ${entries}
 `;
 }
 
+// Geometry Waypoint Validator - ensures sanitized geometry still starts and ends near the template waypoints.
 function validateGeometryAgainstWaypoints(
   routeId: string,
   coordinates: RouteCoordinate[],
@@ -195,6 +204,7 @@ function validateGeometryAgainstWaypoints(
   }
 }
 
+// Geometry Refresh Entry Point - refreshes all template route geometries and keeps last-good fallbacks.
 async function main() {
   const accessToken = resolveMapboxAccessToken(process.cwd());
   const nextRouteGeometries: Record<string, RouteCoordinate[]> = {};

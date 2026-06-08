@@ -22,6 +22,7 @@ const BG_LIGHT = '#F7FEF8';
 const TEXT = '#0F172A';
 const ERROR_COLOR = '#EF4444';
 
+// Auth Error Helper - converts thrown auth errors into user-friendly text.
 function getFriendlyAuthError(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -30,6 +31,7 @@ function getFriendlyAuthError(error: unknown) {
   return 'Something went wrong. Please try again.';
 }
 
+// Forgot Password Screen - validates an email and requests a password reset message.
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
@@ -49,6 +51,7 @@ export default function ForgotPasswordScreen() {
     return <Redirect href={getDefaultAppPath(session) as Href} />;
   }
 
+  // Password Reset Submit - sends the reset email only after validation succeeds.
   const handleSend = async () => {
     setSubmitted(true);
 

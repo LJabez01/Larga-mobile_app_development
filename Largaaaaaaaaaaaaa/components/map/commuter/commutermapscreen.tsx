@@ -1,6 +1,6 @@
 // Commuter Map Screen - renders the route-aware commuter map and overlays.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, TouchableOpacity, TextInput, Text, FlatList, Keyboard, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -17,40 +17,84 @@ import {
 import MapFallback from '../shared/MapFallback';
 import MapMarkerIcon from '../shared/MapMarkerIcon';
 import SettingsDrawer from '../../settings';
-import RideInfoPanel from '../RideInfoPanel';
+import RideInfoPanel, { type VehicleTypeFilter } from '../RideInfoPanel';
 import { useLiveData } from '@/components/providers/LiveDataProvider';
+import { getCurrentDeviceLocation, watchDeviceLocation, type DeviceLocationSnapshot } from '../shared/device-location';
+import type { CommuterReferenceSource } from '@/lib/domain/commuter-visibility';
 
-function fuzzyMatch(query: string, target: string): boolean {
-  const q = query.toLowerCase().trim();
-  const t = target.toLowerCase();
+const COMMUTER_LOCATION_FOCUS_ZOOM = 14.4;
+const COMMUTER_LOCATION_FOCUS_DURATION_MS = 650;
+const AUTO_RECENTER_IDLE_DELAY_MS = 5000;
 
-  if (!q) {
-    return true;
+function formatVehicleTypeCount(filter: VehicleTypeFilter, count: number) {
+  if (filter === 'bus') {
+    return count === 1 ? 'bus' : 'buses';
   }
 
-  let queryIndex = 0;
-
-  for (let index = 0; index < t.length && queryIndex < q.length; index += 1) {
-    if (t[index] === q[queryIndex]) {
-      queryIndex += 1;
-    }
+  if (filter === 'jeep') {
+    return count === 1 ? 'jeep' : 'jeeps';
   }
 
-  return queryIndex === q.length;
+  return count === 1 ? 'vehicle' : 'vehicles';
 }
 
+function formatVehicleTypeEmptyLabel(filter: VehicleTypeFilter) {
+  if (filter === 'all') {
+    return 'active vehicles';
+  }
+
+  return `active ${formatVehicleTypeCount(filter, 2)}`;
+}
+
+function formatRouteContextLabel(routeLabels: string[]) {
+  if (routeLabels.length === 0) {
+    return null;
+  }
+
+  if (routeLabels.length === 1) {
+    return routeLabels[0];
+  }
+
+  return `${routeLabels.length} nearby routes`;
+}
+
+function isPermissionDeniedError(error: unknown) {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? (error as { code?: unknown }).code
+    : null;
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+
+  return code === 'permission-denied' || message.includes('missing or insufficient permissions');
+}
+
+function getPresenceErrorMessage(error: unknown) {
+  if (isPermissionDeniedError(error)) {
+    return 'Unable to update your commuter location. Check that this account has approved commuter access and that the latest Firestore rules are active.';
+  }
+
+  return error instanceof Error ? error.message : 'Unable to update your commuter location.';
+}
+
+// Commuter Map Screen - renders route-aware commuter tracking and vehicle visibility.
 export default function CommuterMapScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [rideInfoVisible, setRideInfoVisible] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<'bus' | 'jeep' | null>(null);
-  const [searchExpanded, setSearchExpanded] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [vehicleTypeFilter, setVehicleTypeFilter] = useState<VehicleTypeFilter>('all');
+  const [isRidePanelCollapsed, setIsRidePanelCollapsed] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isPresenceLoading, setIsPresenceLoading] = useState(false);
   const [hasMapLoadingError, setHasMapLoadingError] = useState(false);
   const [isMapboxReady, setIsMapboxReady] = useState(false);
-  const searchInputRef = useRef<TextInput>(null);
+  const locationWatchRef = useRef<{ remove: () => void } | null>(null);
+  const publishInFlightRef = useRef(false);
+  const presencePermissionBlockedRef = useRef(false);
+  const cameraRef = useRef<any>(null);
+  const lastCenteredCommuterCoordinateRef = useRef<string | null>(null);
+  const latestCommuterCoordinateRef = useRef<[number, number] | null>(null);
+  const autoRecenterPausedRef = useRef(false);
+  const autoRecenterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
-  const { snapshot } = useLiveData();
+  const { snapshot, publishCommuterPresence } = useLiveData();
   const Mapbox = getMapbox();
 
   useEffect(() => {
@@ -81,29 +125,228 @@ export default function CommuterMapScreen() {
     };
   }, [Mapbox]);
 
-  const filteredRoutes = snapshot.routes.filter((route) => fuzzyMatch(searchText, route.label));
-  const visibleVehicles = selectedRouteId
-    ? snapshot.vehicles.filter((vehicle) => vehicle.routeId === selectedRouteId)
-    : snapshot.vehicles;
-  const selectedRouteLabel = snapshot.routes.find((route) => route.id === selectedRouteId)?.label ?? null;
+  // Commuter Camera Focus - moves the map camera to the commuter's current reference point.
+  function focusCameraOnCommuter(coordinate: [number, number]) {
+    if (!cameraRef.current?.setCamera) {
+      return;
+    }
+
+    cameraRef.current.setCamera({
+      centerCoordinate: coordinate,
+      zoomLevel: COMMUTER_LOCATION_FOCUS_ZOOM,
+      animationMode: 'flyTo',
+      animationDuration: COMMUTER_LOCATION_FOCUS_DURATION_MS,
+    });
+  }
+
+  // Coordinate Key Builder - deduplicates automatic camera recenter updates.
+  function getCoordinateKey(coordinate: [number, number]) {
+    return `${coordinate[0].toFixed(6)}:${coordinate[1].toFixed(6)}`;
+  }
+
+  // Auto-Recenter Timer Cleanup - cancels any pending idle recenter action.
+  function clearAutoRecenterTimeout() {
+    if (autoRecenterTimeoutRef.current) {
+      clearTimeout(autoRecenterTimeoutRef.current);
+      autoRecenterTimeoutRef.current = null;
+    }
+  }
+
+  // Idle Auto-Recenter Resume - restarts map following after five seconds without touch input.
+  function resumeAutoRecenterAfterIdle() {
+    clearAutoRecenterTimeout();
+
+    autoRecenterTimeoutRef.current = setTimeout(() => {
+      autoRecenterPausedRef.current = false;
+
+      if (latestCommuterCoordinateRef.current) {
+        lastCenteredCommuterCoordinateRef.current = getCoordinateKey(latestCommuterCoordinateRef.current);
+        focusCameraOnCommuter(latestCommuterCoordinateRef.current);
+      }
+
+      autoRecenterTimeoutRef.current = null;
+    }, AUTO_RECENTER_IDLE_DELAY_MS);
+  }
+
+  // Map Touch Start - pauses automatic camera following while the user explores the map.
+  function handleMapTouchStart() {
+    autoRecenterPausedRef.current = true;
+    clearAutoRecenterTimeout();
+  }
+
+  // Map Touch End - schedules automatic camera following to resume after idle time.
+  function handleMapTouchEnd() {
+    resumeAutoRecenterAfterIdle();
+  }
+
+  // Presence Publisher - sends GPS or manual commuter reference data into live-data visibility.
+  async function publishPresenceFromLocation(
+    location: DeviceLocationSnapshot,
+    referenceSource: CommuterReferenceSource,
+  ) {
+    if (presencePermissionBlockedRef.current) {
+      return;
+    }
+
+    await publishCommuterPresence({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      referenceSource,
+      recordedAt: location.recordedAt,
+    });
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    presencePermissionBlockedRef.current = false;
+
+    // Location Sync Bootstrap - loads the first device location and starts commuter presence.
+    async function beginLocationSync() {
+      setIsPresenceLoading(true);
+      setLocationError(null);
+
+      try {
+        const currentLocation = await getCurrentDeviceLocation();
+
+        if (cancelled) {
+          return;
+        }
+
+        await publishPresenceFromLocation(currentLocation, 'gps');
+        const subscription = await watchDeviceLocation(async (location) => {
+          if (cancelled || publishInFlightRef.current || presencePermissionBlockedRef.current) {
+            return;
+          }
+
+          publishInFlightRef.current = true;
+
+          try {
+            await publishPresenceFromLocation(location, 'gps');
+            setLocationError(null);
+          } catch (error) {
+            if (!cancelled) {
+              setLocationError(getPresenceErrorMessage(error));
+
+              if (isPermissionDeniedError(error)) {
+                presencePermissionBlockedRef.current = true;
+                subscription.remove();
+                locationWatchRef.current = null;
+              }
+            }
+          } finally {
+            publishInFlightRef.current = false;
+          }
+        });
+
+        if (cancelled) {
+          subscription.remove();
+          return;
+        }
+
+        locationWatchRef.current = subscription;
+      } catch (error) {
+        if (!cancelled) {
+          setLocationError(getPresenceErrorMessage(error));
+
+          if (isPermissionDeniedError(error)) {
+            presencePermissionBlockedRef.current = true;
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setIsPresenceLoading(false);
+        }
+      }
+    }
+
+    beginLocationSync();
+
+    return () => {
+      cancelled = true;
+
+      if (locationWatchRef.current) {
+        locationWatchRef.current.remove();
+        locationWatchRef.current = null;
+      }
+    };
+  }, [publishCommuterPresence]);
+
+  const nearbyRouteIds = snapshot.commuterPresence?.nearbyRouteIds ?? [];
+  const nearbyRouteOptions = nearbyRouteIds.length > 0
+    ? snapshot.routes.filter((route) => nearbyRouteIds.includes(route.id))
+    : [];
+  const routeContextLabel = formatRouteContextLabel(nearbyRouteOptions.map((route) => route.label));
+  const visibleVehicles = snapshot.commuterVisibleVehicles;
+  const sortedVisibleVehicles = useMemo(
+    () => [...visibleVehicles].sort((left, right) => (
+      left.etaMinutes - right.etaMinutes
+      || left.type.localeCompare(right.type)
+      || left.routeLabel.localeCompare(right.routeLabel)
+    )),
+    [visibleVehicles],
+  );
+  const filteredVisibleVehicles = useMemo(
+    () => sortedVisibleVehicles.filter((vehicle) => (
+      vehicleTypeFilter === 'all' || vehicle.type === vehicleTypeFilter
+    )),
+    [sortedVisibleVehicles, vehicleTypeFilter],
+  );
+  const selectedVehicle = useMemo(
+    () => (
+      filteredVisibleVehicles.find((vehicle) => vehicle.id === selectedVehicleId)
+      ?? filteredVisibleVehicles[0]
+      ?? null
+    ),
+    [filteredVisibleVehicles, selectedVehicleId],
+  );
   const unreadCount = snapshot.notificationsByRole.commuter.filter((notification) => !notification.read).length;
+  const rideStatusMessage = snapshot.commuterPresence
+    ? locationError
+      ? locationError
+      : filteredVisibleVehicles.length > 0
+        ? `${filteredVisibleVehicles.length} ${formatVehicleTypeCount(vehicleTypeFilter, filteredVisibleVehicles.length)} can still pass your current point.`
+        : nearbyRouteOptions.length > 0
+          ? `No ${formatVehicleTypeEmptyLabel(vehicleTypeFilter)} can still pass your current point right now.`
+          : 'No supported route is near your current point.'
+    : locationError ?? 'Waiting for your current location.';
 
-  function openSearch() {
-    setSearchExpanded(true);
-    setSearchText('');
-    setTimeout(() => searchInputRef.current?.focus(), 50);
-  }
+  useEffect(() => {
+    if (
+      selectedVehicleId
+      && !filteredVisibleVehicles.some((vehicle) => vehicle.id === selectedVehicleId)
+    ) {
+      setSelectedVehicleId(filteredVisibleVehicles[0]?.id ?? null);
+    }
+  }, [filteredVisibleVehicles, selectedVehicleId]);
 
-  function closeSearch() {
-    setSearchExpanded(false);
-    setSearchText('');
-    Keyboard.dismiss();
-  }
+  useEffect(() => {
+    const currentCoordinate = snapshot.commuterPresence?.coordinate;
 
-  function handleSelectRoute(routeId: string) {
-    setSelectedRouteId(routeId);
-    closeSearch();
-  }
+    if (!isMapboxReady || !currentCoordinate) {
+      latestCommuterCoordinateRef.current = null;
+      lastCenteredCommuterCoordinateRef.current = null;
+      return;
+    }
+
+    latestCommuterCoordinateRef.current = currentCoordinate;
+
+    if (autoRecenterPausedRef.current) {
+      return;
+    }
+
+    const coordinateKey = getCoordinateKey(currentCoordinate);
+
+    if (lastCenteredCommuterCoordinateRef.current === coordinateKey) {
+      return;
+    }
+
+    lastCenteredCommuterCoordinateRef.current = coordinateKey;
+    focusCameraOnCommuter(currentCoordinate);
+  }, [isMapboxReady, snapshot.commuterPresence?.coordinate]);
+
+  useEffect(() => () => {
+    clearAutoRecenterTimeout();
+  }, []);
 
   if (!Mapbox) return <MapFallback />;
   if (!isMapboxReady && !hasMapLoadingError) {
@@ -127,49 +370,12 @@ export default function CommuterMapScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      {searchExpanded && (
-        <View style={styles.searchOverlay}>
-          <View style={styles.searchOverlayInputRow}>
-            <TextInput
-              ref={searchInputRef}
-              style={styles.searchOverlayInput}
-              placeholder="Search / Select your Route"
-              placeholderTextColor="#94a3b8"
-              value={searchText}
-              onChangeText={setSearchText}
-              autoFocus
-              returnKeyType="search"
-            />
-            <TouchableOpacity onPress={closeSearch} style={styles.searchOverlayIcon}>
-              <Ionicons name="search" size={20} color="#64748b" />
-            </TouchableOpacity>
-          </View>
-
-          <FlatList
-            data={filteredRoutes}
-            keyExtractor={(item) => item.id}
-            keyboardShouldPersistTaps="handled"
-            style={styles.searchRouteList}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.searchRouteItem}
-                onPress={() => handleSelectRoute(item.id)}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="navigate-outline" size={18} color="#10b981" style={{ marginRight: 12 }} />
-                <Text style={styles.searchRouteItemText}>{item.label}</Text>
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <View style={styles.searchRouteEmpty}>
-                <Text style={styles.searchRouteEmptyText}>No routes found</Text>
-              </View>
-            }
-          />
-        </View>
-      )}
-
+    <View
+      style={styles.container}
+      onTouchStart={handleMapTouchStart}
+      onTouchEnd={handleMapTouchEnd}
+      onTouchCancel={handleMapTouchEnd}
+    >
       <Mapbox.MapView
         style={styles.map}
         styleURL={MAP_STYLE_URL}
@@ -186,8 +392,12 @@ export default function CommuterMapScreen() {
         onMapLoadingError={() => {
           setHasMapLoadingError(true);
         }}
+        onTouchStart={handleMapTouchStart}
+        onTouchEnd={handleMapTouchEnd}
+        onTouchCancel={handleMapTouchEnd}
       >
         <Mapbox.Camera
+          ref={cameraRef}
           zoomLevel={MAP_ZOOM.initial}
           centerCoordinate={INITIAL_CENTER_COORDINATE}
           animationMode="flyTo"
@@ -197,112 +407,94 @@ export default function CommuterMapScreen() {
           pitch={MAP_PITCH}
         />
 
-        {visibleVehicles.map((vehicle) => (
+        {filteredVisibleVehicles.map((vehicle) => (
           <Mapbox.MarkerView key={vehicle.id} coordinate={vehicle.coordinate}>
             <TouchableOpacity
               style={[
                 styles.mapVehicleButton,
                 vehicle.type === 'bus' ? styles.mapVehicleButtonBus : styles.mapVehicleButtonJeep,
-                selectedVehicle === vehicle.type && styles.mapVehicleButtonActive,
+                selectedVehicle?.id === vehicle.id && styles.mapVehicleButtonActive,
               ]}
               activeOpacity={0.85}
               onPress={() => {
-                setSelectedVehicle(vehicle.type);
-                setRideInfoVisible(true);
+                setSelectedVehicleId(vehicle.id);
+                setIsRidePanelCollapsed(false);
               }}
               accessibilityRole="button"
               accessibilityLabel={`View ${vehicle.type} details`}
             >
-              <MapMarkerIcon kind={vehicle.type === 'bus' ? 'bus' : 'jeep'} size="md" active={selectedVehicle === vehicle.type} />
+              <MapMarkerIcon kind={vehicle.type === 'bus' ? 'bus' : 'jeep'} size="md" active={selectedVehicle?.id === vehicle.id} />
             </TouchableOpacity>
           </Mapbox.MarkerView>
         ))}
+
+        {snapshot.commuterPresence ? (
+          <Mapbox.MarkerView coordinate={snapshot.commuterPresence.coordinate}>
+            <View style={commuterOverlayStyles.referenceMarker}>
+              <MapMarkerIcon kind="commuter" size="sm" active />
+            </View>
+          </Mapbox.MarkerView>
+        ) : null}
       </Mapbox.MapView>
 
-      {!searchExpanded && (
-        <>
-          <View style={styles.topBarRow}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => setDrawerVisible(true)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="menu" size={24} color="#0f172a" />
-            </TouchableOpacity>
+      <>
+        <View style={styles.topBarRow}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setDrawerVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="menu" size={24} color="#0f172a" />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.searchBar, selectedRouteLabel ? styles.searchBarSelected : null]}
-              onPress={openSearch}
-              activeOpacity={0.85}
+          <View style={[styles.searchBar, routeContextLabel ? styles.searchBarSelected : null]}>
+            <Text
+              style={[
+                styles.searchInput,
+                routeContextLabel ? styles.searchInputSelected : styles.searchInputPlaceholder,
+              ]}
+              numberOfLines={1}
             >
-              <Text
-                style={[
-                  styles.searchInput,
-                  selectedRouteLabel ? styles.searchInputSelected : styles.searchInputPlaceholder,
-                ]}
-                numberOfLines={1}
-              >
-                {selectedRouteLabel ?? 'Select route'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.iconButton}
-              activeOpacity={0.85}
-              onPress={() => router.push('/notifications')}
-            >
-              <Ionicons name="notifications-outline" size={22} color="#0f172a" />
-              {unreadCount > 0 ? <View style={styles.notificationDot} /> : null}
-            </TouchableOpacity>
-          </View>
-
-          <View style={commuterOverlayStyles.statusCard}>
-            <Text style={commuterOverlayStyles.statusTitle}>
-              {snapshot.activeTrip ? 'Live route activity' : 'Waiting for a live trip'}
-            </Text>
-            <Text style={commuterOverlayStyles.statusText}>
-              {snapshot.activeTrip
-                ? `${snapshot.activeTrip.routeLabel} is active. ${visibleVehicles.length} visible vehicle${visibleVehicles.length === 1 ? '' : 's'} on your current filter.`
-                : 'No active route is currently broadcasting. Check again soon or select another route.'}
+              {routeContextLabel ?? 'Finding your route'}
             </Text>
           </View>
-        </>
-      )}
+
+          <TouchableOpacity
+            style={styles.iconButton}
+            activeOpacity={0.85}
+            onPress={() => router.push('/notifications')}
+          >
+            <Ionicons name="notifications-outline" size={22} color="#0f172a" />
+            {unreadCount > 0 ? <View style={styles.notificationDot} /> : null}
+          </TouchableOpacity>
+        </View>
+
+        <RideInfoPanel
+          vehicle={selectedVehicle}
+          vehicleTypeFilter={vehicleTypeFilter}
+          onVehicleTypeFilterChange={setVehicleTypeFilter}
+          isCollapsed={isRidePanelCollapsed}
+          onCollapsedChange={setIsRidePanelCollapsed}
+          routeContextLabel={routeContextLabel}
+          vehicleCount={filteredVisibleVehicles.length}
+          totalVehicleCount={visibleVehicles.length}
+          hasCommuterPresence={Boolean(snapshot.commuterPresence)}
+          isPresenceLoading={isPresenceLoading}
+          statusMessage={rideStatusMessage}
+        />
+
+      </>
 
       <SettingsDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
-
-      <RideInfoPanel
-        visible={rideInfoVisible}
-        vehicleType={selectedVehicle}
-        onClose={() => {
-          setRideInfoVisible(false);
-          setSelectedVehicle(null);
-        }}
-      />
     </View>
   );
 }
 
 const commuterOverlayStyles = StyleSheet.create({
-  statusCard: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 32,
-    borderRadius: 18,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  statusTitle: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  statusText: {
-    color: '#cbd5e1',
-    fontSize: 13,
-    lineHeight: 20,
+  referenceMarker: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

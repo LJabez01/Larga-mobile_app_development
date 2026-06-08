@@ -23,6 +23,7 @@ export interface UploadedDriverIdImage {
   idImageUrl: string;
 }
 
+// Cloudinary Upload URL - validates public upload config and builds the unsigned upload endpoint.
 function getCloudinaryUploadUrl() {
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
     throw new Error('Driver document upload is not configured yet. Add the Cloudinary public env values and restart the app.');
@@ -31,6 +32,7 @@ function getCloudinaryUploadUrl() {
   return `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 }
 
+// Image MIME Resolver - prefers blob type and falls back to file extension for local image URIs.
 function inferImageMimeType(imageUri: string, blobType: string) {
   if (blobType) {
     return blobType;
@@ -53,6 +55,7 @@ function inferImageMimeType(imageUri: string, blobType: string) {
   return 'image/jpeg';
 }
 
+// Driver ID Filename - creates a stable upload filename with the correct image extension.
 function getDriverIdFileName(uid: string, mimeType: string) {
   const extension = mimeType === 'image/png'
     ? 'png'
@@ -65,6 +68,7 @@ function getDriverIdFileName(uid: string, mimeType: string) {
   return `driver-id-${uid}-${Date.now()}.${extension}`;
 }
 
+// Driver ID Upload - validates the selected ID image and uploads it to Cloudinary for review.
 export async function uploadDriverIdImage(uid: string, imageUri: string): Promise<UploadedDriverIdImage> {
   const validationResponse = await fetch(imageUri);
 

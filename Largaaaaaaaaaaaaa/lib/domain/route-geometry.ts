@@ -45,14 +45,17 @@ export interface SanitizedRouteGeometryResult {
   sanitizedDistanceMeters: number;
 }
 
+// Radian Converter - converts degree coordinates into radians for spherical math.
 function toRadians(value: number) {
   return (value * Math.PI) / 180;
 }
 
+// Degree Converter - converts radian bearings back into map-friendly degrees.
 function toDegrees(value: number) {
   return (value * 180) / Math.PI;
 }
 
+// Coordinate Distance - measures raw longitude/latitude distance for projection comparisons.
 export function getCoordinateDistance(
   left: RouteCoordinate,
   right: RouteCoordinate,
@@ -63,6 +66,7 @@ export function getCoordinateDistance(
   return Math.sqrt((longitudeDistance ** 2) + (latitudeDistance ** 2));
 }
 
+// Coordinate Distance Meters - measures real-world distance between two route coordinates.
 export function getCoordinateDistanceMeters(
   left: RouteCoordinate,
   right: RouteCoordinate,
@@ -79,10 +83,12 @@ export function getCoordinateDistanceMeters(
   return earthRadiusMeters * c;
 }
 
+// Coordinate Equality - compares exact route coordinates before merging or slicing geometry.
 export function areCoordinatesEqual(left: RouteCoordinate, right: RouteCoordinate) {
   return left[0] === right[0] && left[1] === right[1];
 }
 
+// Segment Bearing - calculates compass heading for a route segment when the segment has length.
 export function getSegmentBearingDegrees(
   segmentStart: RouteCoordinate,
   segmentEnd: RouteCoordinate,
@@ -104,12 +110,14 @@ export function getSegmentBearingDegrees(
   return Number.isFinite(bearing) ? bearing : null;
 }
 
+// Bearing Delta - returns the smallest angular difference between two headings.
 export function getBearingDeltaDegrees(leftBearing: number, rightBearing: number) {
   const delta = Math.abs(leftBearing - rightBearing);
 
   return Math.min(delta, 360 - delta);
 }
 
+// Segment Projection - snaps a coordinate to the closest point on one route segment.
 export function projectCoordinateOntoSegment(
   coordinate: RouteCoordinate,
   segmentStart: RouteCoordinate,
@@ -134,6 +142,7 @@ export function projectCoordinateOntoSegment(
   ];
 }
 
+// Nearest Route Projection - finds the closest snapped segment point after the current progress index.
 export function findNearestRouteProjection(
   coordinates: RouteCoordinate[],
   currentCoordinate: RouteCoordinate,
@@ -166,6 +175,7 @@ export function findNearestRouteProjection(
   return nearestProjection;
 }
 
+// Route Slice From Projection - trims completed geometry and starts the route at the snapped live point.
 export function sliceRouteFromProjection(
   coordinates: RouteCoordinate[],
   currentCoordinate: RouteCoordinate,
@@ -219,6 +229,7 @@ export function sliceRouteFromProjection(
   };
 }
 
+// Route Segment Merge - joins route coordinate arrays while avoiding duplicate seam points.
 export function mergeRouteCoordinateSegments(...segments: RouteCoordinate[][]) {
   const mergedCoordinates: RouteCoordinate[] = [];
 
@@ -236,6 +247,7 @@ export function mergeRouteCoordinateSegments(...segments: RouteCoordinate[][]) {
   return mergedCoordinates;
 }
 
+// Path Distance - totals meter distance across a polyline of route coordinates.
 export function getPathDistanceMeters(coordinates: RouteCoordinate[]) {
   if (coordinates.length < 2) {
     return 0;
@@ -253,6 +265,7 @@ export function getPathDistanceMeters(coordinates: RouteCoordinate[]) {
   return totalDistanceMeters;
 }
 
+// Minimum Spacing Simplifier - removes overly dense intermediate points while preserving endpoints.
 export function simplifyRouteCoordinatesByMinSpacing(
   coordinates: RouteCoordinate[],
   minimumSpacingMeters: number,
@@ -283,6 +296,7 @@ export function simplifyRouteCoordinatesByMinSpacing(
   return simplifiedCoordinates;
 }
 
+// Adjacent Coordinate Deduper - removes consecutive points that are effectively duplicates.
 export function dedupeAdjacentRouteCoordinates(
   coordinates: RouteCoordinate[],
   duplicateDistanceMeters = 0,
@@ -323,6 +337,7 @@ interface FindShortBranchRangesOptions {
   minimumBranchSpanSegments?: number;
 }
 
+// Branch Range Overlap - detects sanitizer ranges that would remove the same route span.
 function doRouteBranchRangesOverlap(
   left: RouteBranchRange,
   right: RouteBranchRange,
@@ -330,6 +345,7 @@ function doRouteBranchRangesOverlap(
   return left.startIndex < right.endIndex && right.startIndex < left.endIndex;
 }
 
+// Branch Range Selector - keeps the best non-overlapping detour ranges for geometry cleanup.
 function selectPreferredNonOverlappingBranchRanges(
   ranges: RouteBranchRange[],
 ) {
@@ -356,6 +372,7 @@ function selectPreferredNonOverlappingBranchRanges(
   );
 }
 
+// Short Branch Finder - detects small route detours that leave and quickly rejoin the corridor.
 export function findShortBranchRanges(
   coordinates: RouteCoordinate[],
   {
@@ -435,6 +452,7 @@ interface FindSelfReturningLoopRangesOptions {
   minimumLoopSpanSegments?: number;
 }
 
+// Self-Returning Loop Finder - detects looped geometry that returns to the same corridor point.
 export function findSelfReturningLoopRanges(
   coordinates: RouteCoordinate[],
   {
@@ -480,6 +498,7 @@ export function findSelfReturningLoopRanges(
   return loopRanges;
 }
 
+// Branch Range Remover - strips interior coordinates from detected detour or loop ranges.
 function removeRouteBranchRanges(
   coordinates: RouteCoordinate[],
   branchRanges: RouteBranchRange[],
@@ -499,6 +518,7 @@ function removeRouteBranchRanges(
   return coordinates.filter((_, index) => !coordinatesToRemove.has(index));
 }
 
+// Stable Range Stripper - repeats branch removal until no additional cleanup ranges remain.
 function stripRangesUntilStable(
   coordinates: RouteCoordinate[],
   findRanges: (coordinates: RouteCoordinate[]) => RouteBranchRange[],
@@ -523,6 +543,7 @@ function stripRangesUntilStable(
   };
 }
 
+// Spacing Removal Counter - reports how many points were removed by minimum-spacing simplification.
 function countRemovedSpacingCoordinates(
   originalCoordinates: RouteCoordinate[],
   simplifiedCoordinates: RouteCoordinate[],
@@ -530,6 +551,7 @@ function countRemovedSpacingCoordinates(
   return Math.max(0, originalCoordinates.length - simplifiedCoordinates.length);
 }
 
+// Official Geometry Sanitizer - dedupes, simplifies, and removes route artifacts while protecting endpoints.
 export function sanitizeOfficialRouteGeometry(
   rawCoordinates: RouteCoordinate[],
   {

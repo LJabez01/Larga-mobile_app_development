@@ -42,10 +42,12 @@ const typeConfig = {
   },
 };
 
+// Notification Card - renders one notification and exposes read-toggle behavior.
 export default function NotificationCard({ notification, onPress, onToggleRead }: NotificationCardProps) {
   const config = typeConfig[notification.type];
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
+  // Press In Animation - slightly scales the card down while pressed.
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.98,
@@ -53,6 +55,7 @@ export default function NotificationCard({ notification, onPress, onToggleRead }
     }).start();
   };
 
+  // Press Out Animation - restores the card scale after press release.
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
       toValue: 1,
@@ -60,6 +63,7 @@ export default function NotificationCard({ notification, onPress, onToggleRead }
     }).start();
   };
 
+  // Read Toggle Handler - flips the notification read state through the parent callback.
   const handleToggleRead = () => {
     onToggleRead?.(notification.id, !notification.read);
   };

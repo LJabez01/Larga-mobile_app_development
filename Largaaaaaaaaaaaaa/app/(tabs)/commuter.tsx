@@ -12,6 +12,7 @@ import {
 } from '@/services/driver-applications/firebase-driver-applications';
 import type { DriverApplicationDetail } from '@/services/contracts/admin-review';
 
+// Application Banner Config - maps pending driver review status into commuter-facing banner UI.
 function getBannerConfig(status: DriverApplicationDetail['status']) {
   if (status === 'rejected') {
     return {
@@ -42,6 +43,7 @@ function getBannerConfig(status: DriverApplicationDetail['status']) {
   };
 }
 
+// Commuter Screen - hosts the commuter map and any pending driver-application notice.
 export default function CommuterScreen() {
   const router = useRouter();
   const { session, status } = useAppSession();

@@ -1,147 +1,281 @@
-import { StyleSheet, Dimensions } from 'react-native';
-
-const { width, height } = Dimensions.get('window');
-
-// Base design was built on a ~700px wide tablet (Image 1).
-// We scale everything relative to the current screen width.
-const BASE_WIDTH = 700;
-const scale = (size: number) => (width / BASE_WIDTH) * size;
+import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    justifyContent: 'flex-end',
-  },
-  overlayBackdrop: {
-    flex: 1,
-  },
-  panelWrapper: {
-    paddingHorizontal: scale(16),
-    paddingBottom: scale(32),
-  },
-  panelContainer: {
+  panel: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 14,
+    borderRadius: 28,
     backgroundColor: '#ffffff',
-    borderRadius: scale(28),
-    borderWidth: scale(4),
-    borderColor: '#dce0df',
-    flexDirection: 'row',
-    overflow: 'hidden',
-    height: scale(260),
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+    gap: 12,
     shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: -scale(12) },
-    shadowOpacity: 0.3,
-    shadowRadius: scale(24),
-    elevation: 20,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 16,
   },
-  leftSection: {
-    flex: 1.5,
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(18),
+  panelCollapsed: {
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  panelHandleButton: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 72,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#e5e7eb',
+  },
+  panelHandleLabelRow: {
+    minHeight: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  panelHandleLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#94a3b8',
+  },
+  collapsedPanelRow: {
+    minHeight: 48,
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  collapsedIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#ecfdf5',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  priceBox: {
-    width: '100%',
-    borderWidth: scale(2.5),
-    borderColor: '#e5e7e7',
-    borderRadius: scale(16),
-    paddingVertical: scale(22),
-    paddingHorizontal: scale(12),
-    alignItems: 'center',
+  collapsedTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
   },
-  priceLabel: {
-    fontSize: scale(11),
-    fontWeight: '600',
+  collapsedEyebrow: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#10b981',
+    textTransform: 'uppercase',
+  },
+  collapsedRouteLabel: {
+    fontSize: 13,
+    fontWeight: '800',
     color: '#0f172a',
-    textAlign: 'center',
-    marginBottom: scale(10),
-    lineHeight: scale(14),
   },
-  priceDisplayWrapper: {
-    alignItems: 'center',
-    marginBottom: scale(8),
+  collapsedMetricBlock: {
+    minWidth: 60,
+    alignItems: 'flex-end',
   },
-  priceAmount: {
-    fontSize: scale(52),
+  collapsedMetricValue: {
+    fontSize: 13,
     fontWeight: '900',
     color: '#0f172a',
-    lineHeight: scale(56),
   },
-  pesoText: {
-    fontSize: scale(12),
-    fontWeight: '700',
-    color: '#0f172a',
-    letterSpacing: 0.8,
-    marginTop: scale(1),
+  collapsedMetricLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#94a3b8',
   },
-  priceDivider: {
-    width: '85%',
-    height: 1,
-    backgroundColor: '#d1d5db',
-    marginVertical: scale(6),
-  },
-  buttonGroup: {
-    flexDirection: 'row',
-    gap: scale(4),
-    marginTop: scale(8),
-    justifyContent: 'center',
-  },
-  priceButton: {
-    paddingHorizontal: scale(6),
-    paddingVertical: scale(6),
-    borderRadius: scale(14),
-    borderWidth: scale(1.5),
-    borderColor: '#d1d5db',
-    backgroundColor: '#ffffff',
-  },
-  priceButtonActive: {
-    borderColor: '#0f701c',
-    backgroundColor: '#ffffff',
-  },
-  priceButtonText: {
-    fontSize: scale(11),
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  priceButtonTextActive: {
-    color: '#0f172a',
-  },
-  divider: {
-    width: scale(2.5),
-    backgroundColor: '#b1b1b1',
-    marginVertical: scale(16),
-  },
-  rightSection: {
-    flex: 3,
-    paddingHorizontal: scale(16),
-    paddingVertical: scale(14),
-    justifyContent: 'space-evenly',
-  },
-  infoPill: {
+  filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#10b981',
-    paddingVertical: scale(14),
-    paddingHorizontal: scale(18),
-    borderRadius: scale(24),
-    gap: scale(14),
+    gap: 8,
   },
-  pillTextWrapper: {
+  filterButton: {
     flex: 1,
+    minHeight: 38,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+    backgroundColor: '#ecfdf5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
-  pillLabel: {
-    fontSize: scale(13),
-    fontWeight: '500',
+  filterButtonActive: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  filterButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#10b981',
+  },
+  filterButtonTextActive: {
     color: '#ffffff',
   },
-  pillLabelBold: {
-    fontWeight: '700',
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  pillValue: {
-    fontSize: scale(12),
-    fontWeight: '700',
+  routeIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    borderColor: '#10b981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#94a3b8',
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+  },
+  routeLabel: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  headerActions: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  availabilityPill: {
+    minHeight: 30,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#8ee0bf',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  availabilityPillMuted: {
+    backgroundColor: '#e2e8f0',
+  },
+  availabilityDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#10b981',
+  },
+  availabilityDotMuted: {
+    backgroundColor: '#94a3b8',
+  },
+  availabilityText: {
+    fontSize: 12,
+    fontWeight: '900',
     color: '#ffffff',
-    marginTop: scale(1),
+  },
+  availabilityTextMuted: {
+    color: '#64748b',
+  },
+  metricGrid: {
+    minHeight: 64,
+    borderRadius: 10,
+    backgroundColor: '#e7e7e7',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  metricItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  metricDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: '#d4d4d4',
+  },
+  metricValue: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#7bd3a8',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  countText: {
+    minWidth: 42,
+    textAlign: 'right',
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#10b981',
+  },
+  fareCard: {
+    minHeight: 82,
+    borderRadius: 8,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  fareTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: 8,
+  },
+  fareLabel: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#d1fae5',
+  },
+  fareAmount: {
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  fareToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  fareToggle: {
+    minHeight: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ffffff',
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fareToggleActive: {
+    backgroundColor: '#ffffff',
+  },
+  fareToggleText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  fareToggleTextActive: {
+    color: '#10b981',
   },
 });

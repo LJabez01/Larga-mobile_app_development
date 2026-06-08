@@ -5,7 +5,7 @@ import { deleteApp as deleteAdminApp, getApp, getApps, initializeApp } from 'fir
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { addDoc, collection, deleteDoc, doc, getFirestore, setDoc, connectFirestoreEmulator } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDocs, getFirestore, setDoc, connectFirestoreEmulator } from 'firebase/firestore';
 import { deleteApp as deleteClientApp, getApps as getClientApps, initializeApp as initializeClientApp } from 'firebase/app';
 
 import { serializeRouteCoordinates } from '@/lib/domain/transport';
@@ -19,6 +19,7 @@ const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 const [firestoreHostname, firestorePortText] = firestoreHost.split(':');
 const firestorePort = Number.parseInt(firestorePortText, 10);
 
+// Admin App Factory - reuses or creates the emulator-backed Firebase Admin app.
 function getAdminApp() {
   if (getApps().length > 0) {
     return getApp();
@@ -27,6 +28,7 @@ function getAdminApp() {
   return initializeApp({ projectId });
 }
 
+// Client App Factory - creates an isolated Firebase client connected to Auth and Firestore emulators.
 function createClient(name: string) {
   const app = initializeClientApp(
     {
@@ -47,6 +49,7 @@ function createClient(name: string) {
   return { auth, db };
 }
 
+// Denied Assertion - passes only when a Firestore operation is rejected by rules.
 async function expectDenied(action: Promise<unknown>) {
   try {
     await action;
@@ -58,10 +61,12 @@ async function expectDenied(action: Promise<unknown>) {
   assert.fail('Expected the Firestore rule to deny the action.');
 }
 
+// Allowed Assertion - awaits operations that should pass Firestore rules.
 async function expectAllowed(action: Promise<unknown>) {
   await action;
 }
 
+// Catalog Seeder - writes terminal and route seed records into the emulator before rules checks.
 async function seedCatalog() {
   const adminDb = getAdminFirestore(getAdminApp());
   const batch = adminDb.batch();
@@ -80,6 +85,7 @@ async function seedCatalog() {
   await batch.commit();
 }
 
+// Signed-In Test User Factory - creates auth, user profile, and client db handles for one role scenario.
 async function createSignedInUser(
   email: string,
   password: string,
@@ -125,11 +131,13 @@ async function createSignedInUser(
   };
 }
 
+// Firebase App Cleanup - tears down all Admin and client apps created during smoke tests.
 async function cleanupApps() {
   await Promise.all(getClientApps().map((app) => deleteClientApp(app)));
   await Promise.all(getApps().map((app) => deleteAdminApp(app)));
 }
 
+// Rules Smoke Entry Point - runs representative allow/deny scenarios against Firestore rules.
 async function main() {
   try {
     await seedCatalog();
@@ -138,6 +146,12 @@ async function main() {
     const commuter = await createSignedInUser('commuter@larga.test', 'password123', ['commuter']);
     const admin = await createSignedInUser('admin@larga.test', 'password123', ['admin']);
     const pendingDriver = await createSignedInUser('pending-driver@larga.test', 'password123', [], ['driver']);
+    const legacyCommuter = await createSignedInUser('legacy-commuter@larga.test', 'password123', []);
+
+    await getAdminFirestore(getAdminApp()).collection('users').doc(legacyCommuter.uid).set({
+      role: 'commuter',
+      primaryRole: 'commuter',
+    }, { merge: true });
 
     await expectAllowed(
       setDoc(doc(commuter.db, 'users', commuter.uid), {
@@ -342,6 +356,54 @@ async function main() {
       }),
     );
 
+    const commuterPresencePayload = {
+      commuterId: commuter.uid,
+      status: 'waiting',
+      latitude: 14.8465,
+      longitude: 120.9983,
+      referenceSource: 'gps',
+      nearbyRouteIds: ['sta-maria-bayan-halang'],
+      recordedAt: '2026-05-12T01:01:10.000Z',
+      updatedAt: '2026-05-12T01:01:10.000Z',
+    };
+
+    await expectAllowed(
+      setDoc(doc(commuter.db, 'commuterPresence', commuter.uid), commuterPresencePayload),
+    );
+
+    await expectAllowed(
+      setDoc(doc(legacyCommuter.db, 'commuterPresence', legacyCommuter.uid), {
+        ...commuterPresencePayload,
+        commuterId: legacyCommuter.uid,
+      }),
+    );
+
+    await expectAllowed(
+      setDoc(
+        doc(commuter.db, 'routeCommuterPresence', 'sta-maria-bayan-halang', 'commuters', commuter.uid),
+        commuterPresencePayload,
+      ),
+    );
+
+    await expectDenied(
+      setDoc(doc(driver.db, 'commuterPresence', driver.uid), {
+        ...commuterPresencePayload,
+        commuterId: driver.uid,
+      }),
+    );
+
+    await expectAllowed(
+      getDocs(collection(driver.db, 'routeCommuterPresence', 'sta-maria-bayan-halang', 'commuters')),
+    );
+
+    await expectDenied(
+      getDocs(collection(driver.db, 'routeCommuterPresence', 'sta-maria-bayan-norzagaray', 'commuters')),
+    );
+
+    await expectAllowed(
+      deleteDoc(doc(commuter.db, 'routeCommuterPresence', 'sta-maria-bayan-halang', 'commuters', commuter.uid)),
+    );
+
     await expectAllowed(
       addDoc(collection(driver.db, 'tripEvents'), {
         tripId: driver.uid,
@@ -386,6 +448,10 @@ async function main() {
 
     await expectAllowed(
       deleteDoc(doc(driver.db, 'activeTrips', driver.uid)),
+    );
+
+    await expectDenied(
+      getDocs(collection(driver.db, 'routeCommuterPresence', 'sta-maria-bayan-halang', 'commuters')),
     );
 
     await expectAllowed(

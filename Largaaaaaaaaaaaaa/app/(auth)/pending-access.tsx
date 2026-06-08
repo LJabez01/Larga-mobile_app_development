@@ -14,6 +14,7 @@ import type { DriverApplicationDetail, DriverApplicationStatus } from '@/service
 const PRIMARY = '#10B981';
 const TEXT = '#111827';
 
+// Pending Status Config - maps application review status into copy and visual treatment.
 function getStatusConfig(status: DriverApplicationStatus) {
   if (status === 'rejected') {
     return {
@@ -53,6 +54,7 @@ function getStatusConfig(status: DriverApplicationStatus) {
   };
 }
 
+// Pending Access Screen - shows driver-review progress for accounts waiting on approval.
 export default function PendingAccessScreen() {
   const router = useRouter();
   const { session, signOut, status } = useAppSession();

@@ -41,6 +41,7 @@ export const TERMINAL_SEED: TerminalOption[] = [
   },
 ];
 
+// Generated Route Coordinate Loader - retrieves checked-in Mapbox geometry for a route seed.
 function getGeneratedRouteCoordinates(routeId: string): RouteRecord['coordinates'] {
   const coordinates = GENERATED_ROUTE_GEOMETRIES[routeId];
 
@@ -51,6 +52,7 @@ function getGeneratedRouteCoordinates(routeId: string): RouteRecord['coordinates
   return coordinates.map(([longitude, latitude]) => [longitude, latitude]);
 }
 
+// Reverse Route Record Builder - derives an active return route from a shared corridor template.
 function buildReverseRouteRecord(
   route: (typeof BASE_ROUTE_TEMPLATE_SEED)[number],
   coordinates: RouteRecord['coordinates'],
@@ -65,6 +67,9 @@ function buildReverseRouteRecord(
         vehicleType: route.vehicleType,
         isActive: true,
         coordinates: reverseRouteCoordinates(coordinates),
+        reconnectAccessCoordinates: route.reverseReconnectAccessCoordinates
+          ? route.reverseReconnectAccessCoordinates.map(([longitude, latitude]) => [longitude, latitude])
+          : null,
       };
     default:
       throw new Error(`Unsupported reverse route derivation for ${route.id}`);
@@ -82,6 +87,9 @@ export const ROUTE_SEED: RouteRecord[] = BASE_ROUTE_TEMPLATE_SEED.flatMap((route
       destinationTerminalId: route.destinationTerminalId,
       vehicleType: route.vehicleType,
       coordinates,
+      reconnectAccessCoordinates: route.forwardReconnectAccessCoordinates
+        ? route.forwardReconnectAccessCoordinates.map(([longitude, latitude]) => [longitude, latitude])
+        : null,
       isActive: true,
     },
     buildReverseRouteRecord(route, coordinates),

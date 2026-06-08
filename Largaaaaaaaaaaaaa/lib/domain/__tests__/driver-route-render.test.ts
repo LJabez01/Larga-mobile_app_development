@@ -4,6 +4,7 @@ import test from 'node:test';
 import { buildDriverRouteRenderModel } from '@/lib/domain/driver-route-render';
 import type { DriverGuidanceState, RouteCoordinate } from '@/lib/domain/transport';
 
+// Guidance State Fixture - creates a default driver guidance state with targeted overrides.
 function createGuidanceState(overrides: Partial<DriverGuidanceState> = {}): DriverGuidanceState {
   return {
     mode: 'live-guidance',

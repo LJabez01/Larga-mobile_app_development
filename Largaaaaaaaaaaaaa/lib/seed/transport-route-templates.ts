@@ -24,6 +24,8 @@ export interface BaseRouteTemplate {
   majorRoadGuide: readonly string[];
   avoidRoadGuide: readonly string[];
   waypoints: RouteCoordinate[];
+  forwardReconnectAccessCoordinates?: readonly RouteCoordinate[];
+  reverseReconnectAccessCoordinates?: readonly RouteCoordinate[];
 }
 
 export const BASE_ROUTE_TEMPLATE_SEED: BaseRouteTemplate[] = [
@@ -123,16 +125,19 @@ export const BASE_ROUTE_TEMPLATE_SEED: BaseRouteTemplate[] = [
   },
 ];
 
+// Route Coordinate Reverser - returns a copied coordinate list in destination-to-origin order.
 export function reverseRouteCoordinates(coordinates: RouteRecord['coordinates']): RouteRecord['coordinates'] {
   return [...coordinates]
     .reverse()
     .map(([longitude, latitude]) => [longitude, latitude]);
 }
 
+// Reverse Route ID Builder - derives a stable reverse route ID from terminal IDs.
 export function buildReverseRouteId(originTerminalId: string, destinationTerminalId: string) {
   return `${destinationTerminalId.replace('-terminal', '')}-${originTerminalId.replace('-terminal', '')}`;
 }
 
+// Reverse Route Label Builder - swaps origin and destination labels for return routes.
 export function buildReverseRouteLabel(label: string) {
   const [originLabel, destinationLabel] = label.split(' - ');
 

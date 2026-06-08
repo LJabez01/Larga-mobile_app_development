@@ -16,6 +16,7 @@ interface Props {
   onFinish: () => void;
 }
 
+// Animated Splash Screen - plays the logo transition and calls onFinish after fade-out.
 export default function AnimatedSplashScreen({ onFinish }: Props) {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.8);

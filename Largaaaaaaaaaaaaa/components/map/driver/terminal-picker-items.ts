@@ -23,6 +23,7 @@ export type TerminalPickerListItem =
       location: TransportLocationSeed;
     };
 
+// Terminal Picker Items - groups selectable terminals and reference locations for the driver picker list.
 export function buildTerminalPickerItems({
   referencePickerLocations,
   selectableInventoryLocations,

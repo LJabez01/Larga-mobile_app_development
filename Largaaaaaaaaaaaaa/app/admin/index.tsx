@@ -30,6 +30,7 @@ const FILTERS: Array<{ id: 'all' | DriverApplicationStatus; label: string }> = [
   { id: 'rejected', label: 'Rejected' },
 ];
 
+// Status Palette Resolver - maps driver review status into list badge colors and labels.
 function getStatusPalette(status: DriverApplicationStatus) {
   if (status === 'approved') {
     return {
@@ -66,6 +67,7 @@ function getStatusPalette(status: DriverApplicationStatus) {
   };
 }
 
+// Short Date Formatter - formats review timestamps for compact queue rows.
 function formatShortDate(value: string) {
   try {
     return new Intl.DateTimeFormat('en-US', {
@@ -79,6 +81,7 @@ function formatShortDate(value: string) {
   }
 }
 
+// Admin Review Screen - lists driver applications and filters them by review status.
 export default function AdminReviewScreen() {
   const router = useRouter();
   const { session, signOut, status } = useAppSession();

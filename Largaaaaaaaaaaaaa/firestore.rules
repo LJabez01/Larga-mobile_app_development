@@ -28,6 +28,13 @@ service cloud.firestore {
           )
           || (
             !(get(userDocPath(uid)).data.approvedRoles is list)
+            && get(userDocPath(uid)).data.keys().hasAny(['role'])
+            && get(userDocPath(uid)).data.role == role
+          )
+          || (
+            get(userDocPath(uid)).data.approvedRoles is list
+            && get(userDocPath(uid)).data.approvedRoles.size() == 0
+            && get(userDocPath(uid)).data.keys().hasAny(['role'])
             && get(userDocPath(uid)).data.role == role
           )
         );
@@ -39,6 +46,10 @@ service cloud.firestore {
 
     function isDriver() {
       return userHasApprovedRole(request.auth.uid, 'driver');
+    }
+
+    function isCommuter() {
+      return userHasApprovedRole(request.auth.uid, 'commuter');
     }
 
     function activeTripMatchesRequest(driverId, routeId) {
@@ -61,6 +72,37 @@ service cloud.firestore {
         && data.startedAt is string
         && data.updatedAt is string
         && validRouteProgressSegmentIndex(data.routeProgressSegmentIndex);
+    }
+
+    function validCommuterPresenceShape(data, commuterId) {
+      return data.commuterId == commuterId
+        && data.status in ['waiting', 'active']
+        && data.latitude is number
+        && data.latitude >= -90
+        && data.latitude <= 90
+        && data.longitude is number
+        && data.longitude >= -180
+        && data.longitude <= 180
+        && data.referenceSource in ['gps', 'manual']
+        && data.nearbyRouteIds is list
+        && data.nearbyRouteIds.size() <= 12
+        && data.recordedAt is string
+        && data.updatedAt is string;
+    }
+
+    function driverCanReadCommuterPresence() {
+      return isDriver()
+        && exists(activeTripPath(request.auth.uid))
+        && resource.data.nearbyRouteIds is list
+        && resource.data.nearbyRouteIds.hasAny([
+          get(activeTripPath(request.auth.uid)).data.routeId
+        ]);
+    }
+
+    function driverCanReadRouteCommuterPresence(routeId) {
+      return isDriver()
+        && exists(activeTripPath(request.auth.uid))
+        && get(activeTripPath(request.auth.uid)).data.routeId == routeId;
     }
 
     function ownerCanUpdateActiveTripProgress(driverId) {
@@ -341,6 +383,48 @@ service cloud.firestore {
 
       allow delete: if ((isDriver() && isOwner(driverId) && resource.data.driverId == request.auth.uid)
         || isAdmin());
+    }
+
+    match /commuterPresence/{commuterId} {
+      allow get: if isOwner(commuterId) || isAdmin() || driverCanReadCommuterPresence();
+      allow list: if isAdmin();
+
+      allow create, update: if isCommuter()
+        && isOwner(commuterId)
+        && validCommuterPresenceShape(request.resource.data, commuterId)
+        && request.resource.data.keys().hasOnly([
+          'commuterId',
+          'status',
+          'latitude',
+          'longitude',
+          'referenceSource',
+          'nearbyRouteIds',
+          'recordedAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if (isCommuter() && isOwner(commuterId)) || isAdmin();
+    }
+
+    match /routeCommuterPresence/{routeId}/commuters/{commuterId} {
+      allow read: if isAdmin() || driverCanReadRouteCommuterPresence(routeId);
+
+      allow create, update: if isCommuter()
+        && isOwner(commuterId)
+        && validCommuterPresenceShape(request.resource.data, commuterId)
+        && request.resource.data.nearbyRouteIds.hasAny([routeId])
+        && request.resource.data.keys().hasOnly([
+          'commuterId',
+          'status',
+          'latitude',
+          'longitude',
+          'referenceSource',
+          'nearbyRouteIds',
+          'recordedAt',
+          'updatedAt'
+        ]);
+
+      allow delete: if (isCommuter() && isOwner(commuterId)) || isAdmin();
     }
 
     match /tripEvents/{eventId} {

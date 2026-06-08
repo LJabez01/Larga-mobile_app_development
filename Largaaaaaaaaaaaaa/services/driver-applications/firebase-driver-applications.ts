@@ -46,10 +46,12 @@ export interface SaveDriverApplicationInput {
   idImageUri?: string | null;
 }
 
+// Driver Application Status Guard - validates review workflow states read from Firestore.
 export function isDriverApplicationStatus(value: unknown): value is DriverApplicationStatus {
   return value === 'pending' || value === 'approved' || value === 'rejected' || value === 'needs_resubmission';
 }
 
+// Review Notes Parser - keeps only non-empty review note strings from stored application data.
 export function parseReviewNotes(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -58,10 +60,12 @@ export function parseReviewNotes(value: unknown) {
   return value.filter((note): note is string => typeof note === 'string' && note.trim().length > 0);
 }
 
+// Latest Review Note - returns the newest admin note for status and applicant messaging.
 export function getLatestReviewNote(reviewNotes: string[]) {
   return reviewNotes.length > 0 ? reviewNotes[reviewNotes.length - 1] : null;
 }
 
+// Applicant Review Message - extracts the human feedback portion of the latest review note.
 export function getApplicantVisibleReviewNote(reviewNotes: string[]) {
   const latestReviewNote = getLatestReviewNote(reviewNotes);
 
@@ -78,6 +82,7 @@ export function getApplicantVisibleReviewNote(reviewNotes: string[]) {
   return latestReviewNote;
 }
 
+// Driver Documents Parser - normalizes vehicle and ID document fields from application data.
 function getDriverDocuments(documents: FirestoreDriverApplicationRecord['documents']): DriverDocuments {
   const record = documents && typeof documents === 'object'
     ? documents as Record<string, unknown>
@@ -92,6 +97,7 @@ function getDriverDocuments(documents: FirestoreDriverApplicationRecord['documen
   };
 }
 
+// Driver Application Builder - joins application and user data into the admin/applicant detail model.
 export async function buildDriverApplication(documentId: string, data: DocumentData): Promise<DriverApplicationDetail | null> {
   const application = data as FirestoreDriverApplicationRecord;
 
@@ -129,6 +135,7 @@ export async function buildDriverApplication(documentId: string, data: DocumentD
   };
 }
 
+// Application Documents Builder - normalizes driver fields and uploads a replacement ID image when provided.
 async function buildApplicationDocuments(uid: string, input: Pick<RegisterInput, 'selectedVehicle' | 'plateNumber' | 'licenseNumber' | 'idImageUri'>, existingDocuments?: DriverDocuments) {
   let idImagePath = existingDocuments?.idImagePath ?? null;
   let idImageUrl = existingDocuments?.idImageUrl ?? null;
@@ -148,6 +155,7 @@ async function buildApplicationDocuments(uid: string, input: Pick<RegisterInput,
   };
 }
 
+// Driver Application Creator - submits a pending driver role request for admin review.
 export async function createDriverApplication(uid: string, input: RegisterInput) {
   const submittedAt = new Date().toISOString();
   const documents = await buildApplicationDocuments(uid, input);
@@ -165,6 +173,7 @@ export async function createDriverApplication(uid: string, input: RegisterInput)
   await setDoc(doc(db, 'roleApplications', `driver_${uid}`), applicationDoc);
 }
 
+// Driver Application Detail Loader - fetches and validates one driver application by id.
 export async function getDriverApplicationDetail(applicationId: string) {
   const applicationSnapshot = await getDoc(doc(db, 'roleApplications', applicationId));
 
@@ -181,6 +190,7 @@ export async function getDriverApplicationDetail(applicationId: string) {
   return application;
 }
 
+// Driver Application Resubmission - lets applicants edit pending or resubmission-required documents.
 export async function saveDriverApplicationChanges(input: SaveDriverApplicationInput) {
   const applicationRef = doc(db, 'roleApplications', input.applicationId);
   const applicationSnapshot = await getDoc(applicationRef);

@@ -49,21 +49,27 @@ const PATTERNS = {
 /** Returns true when the value is a non-empty, trimmed string. */
 const hasValue = (v: string): boolean => v.trim().length > 0;
 
+// Email Validator - checks that a trimmed email matches the app's practical email pattern.
 export const isValidEmail = (email: string): boolean =>
   hasValue(email) && PATTERNS.email.test(email.trim().toLowerCase());
 
+// Password Validator - checks that a password satisfies the required complexity rules.
 export const isValidPassword = (password: string): boolean =>
   PATTERNS.password.test(password);
 
+// Username Validator - checks that a username stays within the allowed account-name pattern.
 export const isValidUsername = (username: string): boolean =>
   PATTERNS.username.test(username.trim());
 
+// Plate Number Validator - checks the Philippine plate format used by driver applications.
 export const isValidPlateNumber = (plate: string): boolean =>
   PATTERNS.plate.test(plate.trim().toUpperCase());
 
+// License Number Validator - checks the LTO license format used by driver applications.
 export const isValidLicenseNumber = (license: string): boolean =>
   PATTERNS.license.test(license.trim().toUpperCase());
 
+// Password Match Validator - confirms password and confirmation fields are identical.
 export const doPasswordsMatch = (password: string, confirm: string): boolean =>
   password === confirm;
 
@@ -83,6 +89,7 @@ export interface PasswordStrengthResult {
  * Returns a detailed password strength assessment.
  * Useful for rendering a strength meter in the UI.
  */
+// Password Strength Evaluator - scores password quality and returns UI-ready guidance.
 export function getPasswordStrength(password: string): PasswordStrengthResult {
   const hints: string[] = [];
   let score = 0;
@@ -123,6 +130,7 @@ export interface LoginFields {
  * Validates the login form.
  * Returns field-level errors for inline feedback.
  */
+// Login Form Validator - returns field-level errors for email and password sign-in.
 export function validateLoginForm(fields: LoginFields): ValidationResult {
   const fieldErrors: Record<string, string> = {};
 
@@ -150,6 +158,7 @@ export interface ForgotPasswordFields {
   email: string;
 }
 
+// Forgot Password Validator - validates the reset-email form before sending auth mail.
 export function validateForgotPasswordForm(fields: ForgotPasswordFields): ValidationResult {
   if (!hasValue(fields.email)) {
     return {
@@ -193,6 +202,7 @@ export interface DriverApplicationFields {
   idImage?: string | null;
 }
 
+// Driver Application Validator - checks vehicle, plate, license, and ID upload fields.
 export function validateDriverApplicationFields(fields: DriverApplicationFields) {
   const fieldErrors: Record<string, string> = {};
 
@@ -225,6 +235,7 @@ export function validateDriverApplicationFields(fields: DriverApplicationFields)
  * Full registration validation with field-level error map.
  * Driver-specific fields are checked when the registration intent includes driver access.
  */
+// Registration Form Validator - checks commuter signup and optional driver application fields.
 export function validateRegistrationForm(fields: RegistrationFields): ValidationResult {
   const fieldErrors: Record<string, string> = {};
   const includesDriverIntent = fields.selectedRole === 'Driver' || fields.selectedRole === 'Both';

@@ -9,6 +9,7 @@ interface MapFallbackProps {
   loading?: boolean;
 }
 
+// Map Fallback Screen - presents a stable loading/error surface when native maps cannot render.
 export default function MapFallback({
   eyebrow = 'Map Experience',
   title = 'Map view is unavailable',

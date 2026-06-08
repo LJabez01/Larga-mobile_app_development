@@ -1,6 +1,12 @@
 // Live Data Contracts - defines the shared types and service interface for trip state.
 import type { NotificationItem } from '@/services/contracts/notifications';
 import type {
+  CommuterPresenceRecord,
+  CommuterReferenceSource,
+  CommuterVisibleVehicle,
+  DriverVisibleCommuter,
+} from '@/lib/domain/commuter-visibility';
+import type {
   DriverGuidanceState,
   DriverLocationStatus,
   DriverSelectionState,
@@ -64,11 +70,21 @@ export interface StartTripInput {
   recordedAt?: string;
 }
 
+export interface PublishCommuterPresenceInput {
+  latitude: number;
+  longitude: number;
+  referenceSource: CommuterReferenceSource;
+  recordedAt?: string;
+}
+
 export interface LiveDataSnapshot {
   terminals: TerminalOption[];
   routes: RouteRecord[];
   activeTrip: ActiveTripState | null;
   driverGuidance: DriverGuidanceState | null;
+  commuterPresence: CommuterPresenceRecord | null;
+  commuterVisibleVehicles: CommuterVisibleVehicle[];
+  driverVisibleCommuters: DriverVisibleCommuter[];
   vehicles: VehicleMarker[];
   driverSelection: DriverSelectionState;
   notificationsByRole: {
@@ -84,5 +100,7 @@ export interface LiveDataService {
   startTrip(input?: StartTripInput): Promise<LiveDataSnapshot>;
   endTrip(): Promise<LiveDataSnapshot>;
   publishDriverLocation(input: PublishDriverLocationInput): Promise<LiveDataSnapshot>;
+  publishCommuterPresence(input: PublishCommuterPresenceInput): Promise<LiveDataSnapshot>;
+  clearCommuterPresence(): Promise<LiveDataSnapshot>;
   reset(): Promise<LiveDataSnapshot>;
 }

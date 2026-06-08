@@ -30,6 +30,7 @@ import { validateDriverApplicationFields, type VehicleType } from '@/validations
 const PRIMARY_COLOR = '#10B981';
 const ERROR_COLOR = '#EF4444';
 
+// Driver Application Screen - lets applicants correct and resubmit driver verification details.
 export default function DriverApplicationScreen() {
   const router = useRouter();
   const { session, status } = useAppSession();
@@ -96,6 +97,7 @@ export default function DriverApplicationScreen() {
     [application?.reviewNotes],
   );
 
+  // Driver ID Picker - requests media permissions and starts camera or gallery capture for the ID image.
   async function pickImage() {
     const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
@@ -139,12 +141,14 @@ export default function DriverApplicationScreen() {
     ]);
   }
 
+  // Driver ID Crop Complete - saves the cropped replacement ID image into form state.
   function handleCropComplete(croppedUri: string) {
     setNewIdImage(croppedUri);
     setShowCropper(false);
     setCroppingImage(null);
   }
 
+  // Driver Application Submit - validates corrected details and returns the application to review.
   async function handleSubmit() {
     setSubmitted(true);
 

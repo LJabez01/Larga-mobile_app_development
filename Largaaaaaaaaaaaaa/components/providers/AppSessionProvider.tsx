@@ -35,6 +35,7 @@ export function getDefaultAppPath(session: AppSession): AppRoute {
   return session.defaultPostLoginRoute;
 }
 
+// App Session Provider - hydrates auth state and exposes session actions to the app tree.
 export function AppSessionProvider({ children }: { children: ReactNode }) {
   // Session State - stores the current auth session and loading status for the app.
   const [status, setStatus] = useState<SessionStatus>('loading');
@@ -150,6 +151,7 @@ export function AppSessionProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// App Session Hook - reads the current auth/session context for screens and guards.
 export function useAppSession() {
   // Context Guard - ensures session consumers are used inside the provider tree.
   const context = useContext(AppSessionContext);

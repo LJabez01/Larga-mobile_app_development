@@ -2,6 +2,7 @@
 import { Text, View } from 'react-native';
 import { styles } from '../../components/styles/two.styles';
 
+// Settings Tab Screen - renders the settings drawer as a tab destination.
 export default function TabTwoScreen() {
   return (
     <View style={styles.container}>

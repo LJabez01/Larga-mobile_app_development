@@ -8,6 +8,7 @@ import { Text, View } from './Themed';
 
 import Colors from '@/constants/Colors';
 
+// Edit Screen Info - renders the Expo sample code-path helper content.
 export default function EditScreenInfo({ path }: { path: string }) {
   return (
     <View>

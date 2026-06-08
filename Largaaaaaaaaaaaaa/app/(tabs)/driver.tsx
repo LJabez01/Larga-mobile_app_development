@@ -5,6 +5,7 @@ import { Redirect, type Href } from 'expo-router';
 import DriverMapScreen from '@/components/map/driver/drivermapscreen';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 
+// Driver Screen - hosts the driver map workflow inside the tab shell.
 export default function DriverScreen() {
   const { session, status } = useAppSession();
 

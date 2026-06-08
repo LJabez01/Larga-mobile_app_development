@@ -29,14 +29,14 @@ Build the backend and route-data foundation that supports both the commuter and 
 - [ ] Define terminal document shape
 - [ ] Define how route branches are represented as separate route records
 - [x] Define route polyline storage format
-- [ ] Define configurable route proximity threshold
+- [x] Define configurable route proximity threshold
 
 ## Commuter tasks
-- [ ] Define commuter reference-point handling
-- [ ] Define nearby-route matching query strategy
+- [x] Define commuter reference-point handling
+- [x] Define nearby-route matching query strategy
 - [x] Define vehicle freshness window
-- [ ] Define route-relevance filter logic
-- [ ] Define moderate ETA heuristic for MVP
+- [x] Define route-relevance filter logic
+- [x] Define moderate ETA heuristic for MVP
 
 ## Driver tasks
 - [ ] Define `Larga` activation contract

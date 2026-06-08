@@ -47,6 +47,7 @@ import {
 } from '@/lib/domain/transport';
 import { getDriverCurrentLocation, watchDriverLocation } from './driver-location';
 
+// Terminal Pair Label - formats selected trip endpoints for compact driver UI.
 function formatTerminalPairLabel(originLabel: string | null, destinationLabel: string | null) {
   if (originLabel && destinationLabel) {
     return `${originLabel} to ${destinationLabel}`;
@@ -63,6 +64,7 @@ function formatTerminalPairLabel(originLabel: string | null, destinationLabel: s
   return 'Set trip terminals';
 }
 
+// Next Terminal Metric Label - shortens known terminal names for the trip metric card.
 function formatNextTerminalMetricLabel(label: string | null) {
   if (!label) {
     return 'Destination T.';
@@ -89,6 +91,7 @@ function formatNextTerminalMetricLabel(label: string | null) {
   return label.replace(/\bTerminal\b/i, 'T.');
 }
 
+// Reference Badge Label - labels non-selectable transport inventory entries by operational readiness.
 function buildReferenceLocationBadgeLabel(location: TransportLocationSeed) {
   if (location.coordinatePrecision === 'needs_field_validation') {
     return 'Needs validation';
@@ -101,6 +104,7 @@ function buildReferenceLocationBadgeLabel(location: TransportLocationSeed) {
   return 'Reference only';
 }
 
+// Reference Support Text - explains why a saved location cannot yet be used as the selected endpoint.
 function buildReferenceLocationSupportText(
   location: TransportLocationSeed,
   target: DriverTerminalTarget,
@@ -114,6 +118,7 @@ function buildReferenceLocationSupportText(
   return `Known route reference. Not available yet as a ${targetLabel} terminal.`;
 }
 
+// Selectable Location Support Text - describes how a candidate terminal will be used in trip setup.
 function buildSelectableLocationSupportText(
   location: TransportLocationSeed,
   target: DriverTerminalTarget,
@@ -127,6 +132,7 @@ function buildSelectableLocationSupportText(
   return targetLabel;
 }
 
+// Reference Unavailable Message - gives drivers a specific reason a reference location is disabled.
 function buildReferenceLocationUnavailableMessage(location: TransportLocationSeed) {
   if (location.coordinatePrecision === 'needs_field_validation') {
     return `${location.label} is a known location, but it still needs validation before it can be used as a trip endpoint.`;
@@ -139,6 +145,7 @@ function buildReferenceLocationUnavailableMessage(location: TransportLocationSee
   return `${location.label} is saved as a reference location only, so it cannot start a live trip yet.`;
 }
 
+// Signal Label Formatter - converts GPS freshness state into compact status text.
 function formatSignalLabel(status: 'idle' | 'live' | 'stale' | 'missing') {
   if (status === 'live') {
     return 'Live';
@@ -155,6 +162,7 @@ function formatSignalLabel(status: 'idle' | 'live' | 'stale' | 'missing') {
   return 'Idle';
 }
 
+// Relative Time Formatter - turns ISO timestamps into short "just now" style labels.
 function formatRelativeTime(isoTimestamp: string | null) {
   if (!isoTimestamp) {
     return 'Waiting';
@@ -186,6 +194,7 @@ function formatRelativeTime(isoTimestamp: string | null) {
   return `${Math.floor(diffHours / 24)}d ago`;
 }
 
+// Signal Support Text - explains live, stale, missing, or idle GPS state inside the trip panel.
 function buildSignalSupportText(status: 'idle' | 'live' | 'stale' | 'missing', recordedAt: string | null) {
   if (status === 'live') {
     return `Last update ${formatRelativeTime(recordedAt)}.`;
@@ -202,6 +211,7 @@ function buildSignalSupportText(status: 'idle' | 'live' | 'stale' | 'missing', r
   return 'Pick a valid route direction before starting.';
 }
 
+// Speed Metric Formatter - normalizes nullable driver speed into trip-panel copy.
 function formatSpeedMetric(speedKph: number | null, locationStatus: 'idle' | 'live' | 'stale' | 'missing') {
   if (speedKph === null) {
     return locationStatus === 'live' ? 'Updating...' : 'Waiting';
@@ -214,6 +224,7 @@ function formatSpeedMetric(speedKph: number | null, locationStatus: 'idle' | 'li
   return `${Math.round(speedKph)} km/h`;
 }
 
+// Distance Metric Formatter - converts remaining route meters into readable distance text.
 function formatDistanceMetric(distanceMeters: number | null) {
   if (distanceMeters === null) {
     return 'Updating...';
@@ -230,6 +241,7 @@ function formatDistanceMetric(distanceMeters: number | null) {
   return `${Math.round(distanceMeters / 1000)} km`;
 }
 
+// ETA Metric Formatter - converts computed ETA minutes into compact trip-panel copy.
 function formatEtaMetric(etaMinutes: number | null, locationStatus: 'idle' | 'live' | 'stale' | 'missing') {
   if (etaMinutes === null) {
     return locationStatus === 'live' ? 'Estimating...' : 'Waiting';
@@ -249,31 +261,17 @@ function formatEtaMetric(etaMinutes: number | null, locationStatus: 'idle' | 'li
   return `${hours}h ${minutes}m`;
 }
 
-function getBoundsForCoordinates(coordinates: RouteCoordinate[]) {
-  if (coordinates.length === 0) {
-    return null;
-  }
-
-  const longitudes = coordinates.map((coordinate) => coordinate[0]);
-  const latitudes = coordinates.map((coordinate) => coordinate[1]);
-
-  return {
-    ne: [Math.max(...longitudes), Math.max(...latitudes)] as RouteCoordinate,
-    sw: [Math.min(...longitudes), Math.min(...latitudes)] as RouteCoordinate,
-  };
-}
-
-const ROUTE_FIT_PADDING = [72, 48, 240, 48] as const;
-const ROUTE_FIT_DURATION_MS = 900;
 const START_TRIP_FOCUS_ZOOM = 15.2;
 const START_TRIP_FOCUS_DURATION_MS = 850;
 const START_TRIP_ROUTE_OVERVIEW_DELAY_MS = 1150;
 const CAMERA_NOTICE_DURATION_MS = 2600;
+const AUTO_RECENTER_IDLE_DELAY_MS = 5000;
 const TRIP_PANEL_COLLAPSED_CONTROL_HEIGHT = 56;
 const TRIP_PANEL_COLLAPSED_CONTROL_BOTTOM = 18;
 const TRIP_PANEL_EXIT_OFFSET = 28;
 const TRIP_PANEL_ANIMATION_DURATION_MS = 220;
 
+// Driver Map Screen - renders trip setup, live route guidance, and driver-visible commuter markers.
 export default function DriverMapScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [terminalPickerVisible, setTerminalPickerVisible] = useState(false);
@@ -296,7 +294,10 @@ export default function DriverMapScreen() {
   const cameraNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startFocusTripIdRef = useRef<string | null>(null);
   const startFocusActiveRef = useRef(false);
-  const lastGuidanceFitKeyRef = useRef<string | null>(null);
+  const lastAutoCenteredVehicleCoordinateRef = useRef<string | null>(null);
+  const latestActiveVehicleCoordinateRef = useRef<RouteCoordinate | null>(null);
+  const autoRecenterPausedRef = useRef(false);
+  const autoRecenterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const Mapbox = getMapbox();
   const { snapshot, selectDriverTerminals, startTrip, endTrip, publishDriverLocation } = useLiveData();
@@ -505,6 +506,9 @@ export default function DriverMapScreen() {
   const activeGuidanceWarning = activeTrip
     ? driverGuidance?.warningMessage ?? null
     : null;
+  const activeCommuterVisibilityText = activeTrip && snapshot.driverVisibleCommuters.length === 0
+    ? 'No waiting commuters match this route segment right now.'
+    : null;
   const activeTripMetrics = useMemo(
     () => buildDriverTripMetrics(
       driverGuidance,
@@ -525,12 +529,8 @@ export default function DriverMapScreen() {
   const activeNextTerminalLabel = formatNextTerminalMetricLabel(activeDestinationLabel);
   const activeTripId = activeTrip?.id ?? null;
   const activeTripRouteId = activeTrip?.routeId ?? null;
-  const recenterButtonBottom = !activeTrip
-    ? null
-    : isTripPanelMounted
-      ? (tripPanelHeight > 0 ? tripPanelHeight + 18 : null)
-      : TRIP_PANEL_COLLAPSED_CONTROL_HEIGHT + TRIP_PANEL_COLLAPSED_CONTROL_BOTTOM + 16;
 
+  // Trip Start Focus Cleanup - cancels the delayed transition out of initial trip camera focus.
   function clearTripStartFocusTimeout() {
     if (tripStartFocusTimeoutRef.current) {
       clearTimeout(tripStartFocusTimeoutRef.current);
@@ -538,6 +538,7 @@ export default function DriverMapScreen() {
     }
   }
 
+  // Camera Notice Display - shows temporary feedback after automatic camera movement.
   function showCameraNotice(message: string) {
     setCameraNotice(message);
 
@@ -551,6 +552,7 @@ export default function DriverMapScreen() {
     }, CAMERA_NOTICE_DURATION_MS);
   }
 
+  // Driver Camera Focus - centers the map on the active vehicle coordinate.
   function focusCameraOnDriver(coordinate: RouteCoordinate) {
     if (!cameraRef.current?.setCamera) {
       return;
@@ -564,34 +566,54 @@ export default function DriverMapScreen() {
     });
   }
 
-  function fitTripCameraContext(
-    boundsCoordinates: RouteCoordinate[],
-  ) {
-    const bounds = getBoundsForCoordinates(boundsCoordinates);
-
-    if (!bounds || !cameraRef.current?.fitBounds) {
-      return false;
-    }
-
-    cameraRef.current.fitBounds(
-      bounds.ne,
-      bounds.sw,
-      ROUTE_FIT_PADDING,
-      ROUTE_FIT_DURATION_MS,
-    );
-
-    return true;
+  // Vehicle Coordinate Key - deduplicates automatic camera recenter updates per trip.
+  function getVehicleCoordinateKey(tripId: string, coordinate: RouteCoordinate) {
+    return [
+      tripId,
+      coordinate[0].toFixed(6),
+      coordinate[1].toFixed(6),
+    ].join(':');
   }
 
-  function centerCameraOnActiveVehicle() {
-    if (!activeVehicle) {
-      return;
+  // Auto-Recenter Timer Cleanup - cancels any pending idle recenter action.
+  function clearAutoRecenterTimeout() {
+    if (autoRecenterTimeoutRef.current) {
+      clearTimeout(autoRecenterTimeoutRef.current);
+      autoRecenterTimeoutRef.current = null;
     }
-
-    focusCameraOnDriver(activeVehicle.coordinate);
-    showCameraNotice('Centered on your live location.');
   }
 
+  // Idle Auto-Recenter Resume - restarts driver camera following after five seconds without touch input.
+  function resumeAutoRecenterAfterIdle() {
+    clearAutoRecenterTimeout();
+
+    autoRecenterTimeoutRef.current = setTimeout(() => {
+      autoRecenterPausedRef.current = false;
+
+      if (activeTripId && latestActiveVehicleCoordinateRef.current) {
+        lastAutoCenteredVehicleCoordinateRef.current = getVehicleCoordinateKey(
+          activeTripId,
+          latestActiveVehicleCoordinateRef.current,
+        );
+        focusCameraOnDriver(latestActiveVehicleCoordinateRef.current);
+      }
+
+      autoRecenterTimeoutRef.current = null;
+    }, AUTO_RECENTER_IDLE_DELAY_MS);
+  }
+
+  // Map Touch Start - pauses automatic following while the driver inspects the map.
+  function handleMapTouchStart() {
+    autoRecenterPausedRef.current = true;
+    clearAutoRecenterTimeout();
+  }
+
+  // Map Touch End - schedules automatic following to resume after idle time.
+  function handleMapTouchEnd() {
+    resumeAutoRecenterAfterIdle();
+  }
+
+  // Trip Panel Collapse - animates the active trip details offscreen.
   function collapseTripPanel() {
     setIsTripPanelExpanded(false);
 
@@ -615,6 +637,7 @@ export default function DriverMapScreen() {
     });
   }
 
+  // Trip Panel Expand - restores the active trip details panel from its collapsed control.
   function expandTripPanel() {
     setIsTripPanelMounted(true);
     setIsTripPanelExpanded(true);
@@ -654,7 +677,6 @@ export default function DriverMapScreen() {
     clearTripStartFocusTimeout();
     tripStartFocusTimeoutRef.current = setTimeout(() => {
       startFocusActiveRef.current = false;
-      fitTripCameraContext(routeRenderModel.boundsCoordinates);
       tripStartFocusTimeoutRef.current = null;
     }, START_TRIP_ROUTE_OVERVIEW_DELAY_MS);
   }, [activeTrip, activeVehicle, routeRenderModel]);
@@ -669,27 +691,32 @@ export default function DriverMapScreen() {
   }, [activeTrip, tripPanelTranslateY]);
 
   useEffect(() => {
-    if (!activeTrip || !driverGuidance?.updatedAt || !activeVehicle || !mapDestinationTerminal) {
+    if (!isMapboxReady || !activeTrip || !activeVehicle) {
+      latestActiveVehicleCoordinateRef.current = null;
+      lastAutoCenteredVehicleCoordinateRef.current = null;
       return;
     }
 
-    if (startFocusActiveRef.current) {
+    latestActiveVehicleCoordinateRef.current = activeVehicle.coordinate;
+
+    if (autoRecenterPausedRef.current) {
       return;
     }
 
-    const fitKey = `${driverGuidance.mode}:${driverGuidance.updatedAt}`;
+    const coordinateKey = getVehicleCoordinateKey(activeTrip.id, activeVehicle.coordinate);
 
-    if (lastGuidanceFitKeyRef.current === fitKey) {
+    if (lastAutoCenteredVehicleCoordinateRef.current === coordinateKey) {
       return;
     }
 
-    lastGuidanceFitKeyRef.current = fitKey;
-    fitTripCameraContext(routeRenderModel.boundsCoordinates);
-  }, [activeTrip, activeVehicle, driverGuidance, mapDestinationTerminal, routeRenderModel]);
+    lastAutoCenteredVehicleCoordinateRef.current = coordinateKey;
+    focusCameraOnDriver(activeVehicle.coordinate);
+  }, [activeTrip, activeVehicle, isMapboxReady]);
 
   useEffect(() => {
     return () => {
       clearTripStartFocusTimeout();
+      clearAutoRecenterTimeout();
 
       if (cameraNoticeTimeoutRef.current) {
         clearTimeout(cameraNoticeTimeoutRef.current);
@@ -701,6 +728,7 @@ export default function DriverMapScreen() {
   useEffect(() => {
     let cancelled = false;
 
+    // Driver Location Watch Bootstrap - starts or stops live trip tracking as route state changes.
     async function beginLocationWatch() {
       if (!activeTripId || !activeTripRouteId) {
         if (locationWatchRef.current) {
@@ -765,6 +793,7 @@ export default function DriverMapScreen() {
     };
   }, [activeTripId, activeTripRouteId, publishDriverLocation]);
 
+  // Terminal Picker Open - starts the trip setup flow when no active trip is running.
   function openTerminalPicker() {
     if (snapshot.activeTrip) {
       return;
@@ -777,15 +806,18 @@ export default function DriverMapScreen() {
     setTimeout(() => routeListRef.current?.scrollToOffset({ offset: 0, animated: false }), 50);
   }
 
+  // Terminal Picker Close - dismisses the terminal picker overlay.
   function closeTerminalPicker() {
     setTerminalPickerVisible(false);
   }
 
+  // Reference Location Press - explains why a reference-only location cannot be selected.
   function handlePressReferenceLocation(location: TransportLocationSeed) {
     setActionError(null);
     setActionHint(buildReferenceLocationUnavailableMessage(location));
   }
 
+  // Terminal Selection Handler - applies origin/destination choices and resolves a compatible route.
   async function handleSelectTerminal(
     terminalId: string,
     locationId: string | null = null,
@@ -835,6 +867,7 @@ export default function DriverMapScreen() {
     }
   }
 
+  // Terminal Clear Handler - removes one endpoint from the current driver selection.
   async function handleClearTerminal(target: DriverTerminalTarget) {
     setActionError(null);
     setActionHint(null);
@@ -852,6 +885,7 @@ export default function DriverMapScreen() {
     }
   }
 
+  // Trip Start Handler - starts the selected route using the current device location when available.
   async function handleStartTrip() {
     setActionError(null);
     setActionHint(null);
@@ -867,6 +901,7 @@ export default function DriverMapScreen() {
     }
   }
 
+  // Trip End Handler - stops the active trip and clears driver live location state.
   async function handleEndTrip() {
     setActionError(null);
     setIsTripSubmitting(true);
@@ -922,7 +957,12 @@ export default function DriverMapScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onTouchStart={handleMapTouchStart}
+      onTouchEnd={handleMapTouchEnd}
+      onTouchCancel={handleMapTouchEnd}
+    >
       {terminalPickerVisible ? (
         <View style={styles.searchOverlay}>
           <View style={driverOverlayStyles.setupHeader}>
@@ -1171,6 +1211,9 @@ export default function DriverMapScreen() {
         onMapLoadingError={() => {
           setHasMapLoadingError(true);
         }}
+        onTouchStart={handleMapTouchStart}
+        onTouchEnd={handleMapTouchEnd}
+        onTouchCancel={handleMapTouchEnd}
       >
         <Mapbox.Camera
           ref={cameraRef}
@@ -1234,6 +1277,14 @@ export default function DriverMapScreen() {
             </View>
           </Mapbox.MarkerView>
         ) : null}
+
+        {snapshot.driverVisibleCommuters.map((commuter) => (
+          <Mapbox.MarkerView key={commuter.id} coordinate={commuter.coordinate}>
+            <View style={driverOverlayStyles.commuterMarker}>
+              <MapMarkerIcon kind="commuter" size="md" active />
+            </View>
+          </Mapbox.MarkerView>
+        ))}
       </Mapbox.MapView>
 
       {!terminalPickerVisible ? (
@@ -1315,19 +1366,6 @@ export default function DriverMapScreen() {
               <Ionicons name="locate" size={14} color="#0f766e" />
               <Text style={driverOverlayStyles.cameraNoticeText}>{cameraNotice}</Text>
             </View>
-          ) : null}
-
-          {snapshot.activeTrip && activeVehicle && recenterButtonBottom !== null ? (
-            <TouchableOpacity
-              style={[
-                driverOverlayStyles.recenterButton,
-                { bottom: recenterButtonBottom },
-              ]}
-              activeOpacity={0.9}
-              onPress={centerCameraOnActiveVehicle}
-            >
-              <Ionicons name="locate" size={18} color="#0f172a" />
-            </TouchableOpacity>
           ) : null}
 
           {!snapshot.activeTrip ? (
@@ -1446,6 +1484,13 @@ export default function DriverMapScreen() {
                 <View style={driverOverlayStyles.guidanceNotice}>
                   <Ionicons name="navigate-circle" size={16} color="#0f766e" />
                   <Text style={driverOverlayStyles.guidanceNoticeText}>{activeGuidanceWarning}</Text>
+                </View>
+              ) : null}
+
+              {activeCommuterVisibilityText ? (
+                <View style={driverOverlayStyles.guidanceNotice}>
+                  <Ionicons name="people-circle-outline" size={16} color="#0f766e" />
+                  <Text style={driverOverlayStyles.guidanceNoticeText}>{activeCommuterVisibilityText}</Text>
                 </View>
               ) : null}
 
@@ -1580,23 +1625,6 @@ const driverOverlayStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  recenterButton: {
-    position: 'absolute',
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#d1fae5',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    elevation: 6,
-  },
   collapsedTripPanelControl: {
     position: 'absolute',
     left: 16,
@@ -1619,6 +1647,14 @@ const driverOverlayStyles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commuterMarker: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',

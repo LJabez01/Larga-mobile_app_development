@@ -8,6 +8,7 @@ interface FormErrorTextProps {
   visible?: boolean;
 }
 
+// Form Error Text - renders a validation message only when one should be visible.
 export default function FormErrorText({ error, visible = true }: FormErrorTextProps) {
   if (!error || !visible) return null;
 

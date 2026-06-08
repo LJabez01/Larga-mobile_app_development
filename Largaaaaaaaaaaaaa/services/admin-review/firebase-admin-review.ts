@@ -37,6 +37,7 @@ interface FirestoreDriverApplicationRecord {
   reviewNotes?: unknown;
 }
 
+// Driver Application Subscription - streams admin review rows and normalizes application documents.
 export function subscribeToDriverApplications(
   listener: (applications: DriverApplicationListItem[]) => void,
   onError?: (error: Error) => void,
@@ -64,6 +65,7 @@ export function subscribeToDriverApplications(
   );
 }
 
+// Review Note Builder - records reviewer, decision, timestamp, and optional feedback in one audit string.
 function createReviewNote(status: ReviewDriverApplicationInput['status'], reviewerName: string, note?: string) {
   const timestamp = new Date().toISOString();
   const actionLabel = status === 'approved'
@@ -78,6 +80,7 @@ function createReviewNote(status: ReviewDriverApplicationInput['status'], review
     : `${timestamp} • ${actionLabel} • ${reviewerName}`;
 }
 
+// Driver Approval Role Update - grants driver access and removes the pending driver request.
 function applyApprovalToUser(
   approvedRoles: AppRole[],
   pendingRoleRequests: SelfServiceRole[],
@@ -92,6 +95,7 @@ function applyApprovalToUser(
   };
 }
 
+// Driver Application Review - atomically updates the application and applicant role state.
 export async function reviewDriverApplication(input: ReviewDriverApplicationInput) {
   if ((input.status === 'rejected' || input.status === 'needs_resubmission') && !input.note?.trim()) {
     throw new Error('A review note is required for rejected or resubmission decisions.');

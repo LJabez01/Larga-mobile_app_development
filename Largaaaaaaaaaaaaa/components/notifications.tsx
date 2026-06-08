@@ -95,6 +95,7 @@ const DRIVER_NOTIFICATIONS: NotificationItem[] = [
   },
 ];
 
+// Notifications Screen - groups role-aware notifications and filters unread updates.
 export default function NotificationsScreen({
   userRole = 'commuter',
   onBack,

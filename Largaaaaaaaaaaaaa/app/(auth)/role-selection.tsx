@@ -9,6 +9,7 @@ import { useAppSession } from '@/components/providers/AppSessionProvider';
 const PRIMARY = '#10B981';
 const TEXT = '#111827';
 
+// Role Selection Screen - lets multi-role users choose which experience to enter.
 export default function RoleSelectionScreen() {
   const router = useRouter();
   const { selectRole, session, status } = useAppSession();

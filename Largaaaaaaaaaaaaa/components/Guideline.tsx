@@ -57,6 +57,7 @@ interface GuidelineProps {
   onSkip?: () => void;
 }
 
+// Guideline - advances onboarding slides and routes users into the correct app entry point.
 export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const router = useRouter();
@@ -65,6 +66,7 @@ export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
     ? getDefaultAppPath(session)
     : '/login';
 
+  // Next Slide Handler - moves forward or completes onboarding on the final slide.
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
       setCurrentSlide(currentSlide + 1);
@@ -75,6 +77,7 @@ export default function Guideline({ onComplete, onSkip }: GuidelineProps) {
     }
   };
 
+  // Skip Handler - exits onboarding through the provided callback or default route.
   const handleSkip = () => {
     if (onSkip) {
       onSkip();

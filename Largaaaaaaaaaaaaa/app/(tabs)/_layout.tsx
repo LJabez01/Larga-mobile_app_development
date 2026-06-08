@@ -2,6 +2,7 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 
+// Tab Layout - registers the authenticated tab routes with hidden tab chrome.
 export default function TabLayout() {
   return (
     <Stack

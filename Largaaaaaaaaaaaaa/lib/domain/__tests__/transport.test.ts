@@ -284,6 +284,39 @@ test('buildDriverGuidancePathPlan does not resurrect already-passed route segmen
   assert.ok(guidancePlan.remainingRouteCoordinates.length < routeCoordinates.length);
 });
 
+test('buildDriverGuidancePathPlan prefers the earliest comparable start-corridor rejoin instead of the marginally shortest deeper segment', () => {
+  const routeCoordinates = [
+    [120.000000, 14.000000],
+    [120.001000, 14.000000],
+    [120.002000, 14.000000],
+    [120.003000, 14.000000],
+    [120.004000, 14.000000],
+    [120.005000, 14.000000],
+    [120.006000, 14.000000],
+    [120.007000, 14.000000],
+    [120.008000, 14.000000],
+    [120.009000, 14.000000],
+    [120.010000, 14.000000],
+    [120.011000, 14.000000],
+    [120.012000, 14.000000],
+  ] as [number, number][];
+
+  const guidancePlan = buildDriverGuidancePathPlan(
+    [120.010500, 14.001200],
+    routeCoordinates,
+    routeCoordinates[routeCoordinates.length - 1],
+    0,
+  );
+
+  assert.deepEqual(guidancePlan.rejoinCoordinate, [120.010000, 14.000000]);
+  assert.equal(guidancePlan.rejoinSegmentIndex, 9);
+  assert.deepEqual(guidancePlan.remainingRouteCoordinates[0], [120.010000, 14.000000]);
+  assert.deepEqual(
+    guidancePlan.remainingRouteCoordinates[guidancePlan.remainingRouteCoordinates.length - 1],
+    routeCoordinates[routeCoordinates.length - 1],
+  );
+});
+
 test('mergeRouteCoordinateSegments stitches connector and stored route segments without duplicate joins', () => {
   const mergedCoordinates = mergeRouteCoordinateSegments(
     [

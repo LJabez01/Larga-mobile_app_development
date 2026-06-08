@@ -10,6 +10,7 @@ This document defines the current Firebase structure for the LARGA MVP backend f
 - Hide vehicle markers once their `recordedAt` value is older than the current 2-minute freshness window.
 - Keep live operational state separate from long-term history:
   - `activeTrips` and `vehicleLocations` are operational
+  - `commuterPresence` is operational and short-lived
   - `tripEvents` is append-only history
 
 ## Role model
@@ -157,6 +158,35 @@ Rules intent:
 - Driver can delete their own latest location document when ending a trip.
 - Admin can moderate or clean up records if needed.
 
+### `commuterPresence/{uid}`
+Latest known commuter waiting/reference point used for route-aware vehicle visibility and driver-side route-relevant commuter markers.
+
+Suggested fields:
+- `commuterId`
+- `status`
+- `latitude`
+- `longitude`
+- `referenceSource`
+- `nearbyRouteIds`
+- `recordedAt`
+- `updatedAt`
+
+Rules intent:
+- Commuter can create, update, read, and delete only their own presence document.
+- Approved drivers can read commuter presence only when their active trip route appears in `nearbyRouteIds`.
+- Admin can read or clean up presence records.
+- The document must not store commuter profile fields such as email, phone number, or display name.
+- Clients should ignore presence records older than the current 2-minute freshness window.
+
+### `routeCommuterPresence/{routeId}/commuters/{uid}`
+Route-scoped mirror of commuter presence used for active driver reads.
+
+Rules intent:
+- Approved drivers can list only the route document path matching their current `activeTrips/{driverId}.routeId`.
+- Commuters can write their own route-scoped presence mirrors only when the route appears in their `nearbyRouteIds`.
+- The mirror uses the same minimal fields as `commuterPresence/{uid}` and must not contain profile data.
+- Stale mirrors are harmless to rendering because clients apply the same freshness window before showing markers.
+
 ### `tripEvents/{eventId}`
 Append-only trip event history for reporting and later analytics.
 
@@ -198,3 +228,4 @@ The current backend slice is complete when the system can:
 6. End the trip and clean up operational state safely
 7. Persist pending driver applications from registration
 8. Let a trusted admin account approve or reject driver applications inside the app
+9. Publish commuter presence and filter route-relevant vehicle/commuter visibility from the same route dataset

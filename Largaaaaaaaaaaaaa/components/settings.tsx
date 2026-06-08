@@ -60,6 +60,7 @@ type Props = {
   onClose: () => void;
 };
 
+// Settings Drawer - animates the settings panel and switches between nested settings pages.
 export default function SettingsDrawer({ visible, onClose }: Props) {
   const router = useRouter();
   const { session, signOut } = useAppSession();
@@ -83,6 +84,7 @@ export default function SettingsDrawer({ visible, onClose }: Props) {
     ]).start();
   }
 
+  // Drawer Close Handler - hides the drawer and resets nested page state after animation.
   const handleClose = () => {
     Animated.parallel([
       Animated.timing(slideAnim, {

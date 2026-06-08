@@ -6,4 +6,7 @@ export const TERMINAL_FIXTURES = TERMINAL_SEED.map((terminal) => ({ ...terminal 
 export const ROUTE_FIXTURES = ROUTE_SEED.map((route) => ({
   ...route,
   coordinates: route.coordinates.map((coordinate) => [...coordinate] as [number, number]),
+  reconnectAccessCoordinates: route.reconnectAccessCoordinates
+    ? route.reconnectAccessCoordinates.map((coordinate) => [...coordinate] as [number, number])
+    : null,
 }));

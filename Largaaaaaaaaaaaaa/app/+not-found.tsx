@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 
+// Not Found Screen - shows the fallback route when Expo Router cannot match a path.
 export default function NotFoundScreen() {
   return (
     <>

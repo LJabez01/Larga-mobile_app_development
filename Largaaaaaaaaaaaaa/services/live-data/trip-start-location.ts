@@ -19,6 +19,7 @@ export interface ResolvedTripStartLocation {
   usesLiveLocation: boolean;
 }
 
+// Trip Start Location Resolver - chooses live start GPS when present, otherwise falls back to route origin.
 export function resolveTripStartLocation(
   route: RouteRecord,
   startedAt: string,
@@ -64,6 +65,7 @@ export function resolveTripStartLocation(
   };
 }
 
+// Startup Location Trust Check - prevents inaccurate initial GPS from corrupting early driver guidance.
 export function shouldTrustTripStartupLocationForGuidance({
   route,
   currentCoordinate,

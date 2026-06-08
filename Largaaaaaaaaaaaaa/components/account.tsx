@@ -15,6 +15,7 @@ type Props = {
   onBack: () => void;
 };
 
+// Account Screen - displays editable profile information and account actions.
 export default function AccountScreen({ onBack }: Props) {
   const [fullName, setFullName] = useState("Juanyyyyy");
   const [email, setEmail] = useState("juandelacruz@gmail.com");

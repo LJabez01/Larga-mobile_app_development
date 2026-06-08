@@ -22,6 +22,7 @@ type MapboxEnvSource = {
   MAPBOX_DIRECTIONS_ACCESS_TOKEN?: string;
 };
 
+// Mapbox Render Token Resolver - chooses the app map token while preserving Expo's static env access.
 export function resolveMapboxAccessToken(envSource?: MapboxEnvSource | null) {
   const envToken = envSource?.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN_OVERRIDE
     || EXPO_PUBLIC_MAPBOX_RENDER_TOKEN_OVERRIDE;
@@ -29,6 +30,7 @@ export function resolveMapboxAccessToken(envSource?: MapboxEnvSource | null) {
   return envToken || DEFAULT_MAPBOX_RENDER_ACCESS_TOKEN;
 }
 
+// Mapbox Directions Token Resolver - chooses the routing token and falls back to the render token.
 export function resolveMapboxDirectionsAccessToken(envSource?: MapboxEnvSource | null) {
   const directionsToken = envSource?.MAPBOX_DIRECTIONS_ACCESS_TOKEN
     || envSource?.EXPO_PUBLIC_MAPBOX_DIRECTIONS_ACCESS_TOKEN
