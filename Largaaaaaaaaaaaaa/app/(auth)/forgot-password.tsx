@@ -28,7 +28,7 @@ function getFriendlyAuthError(error: unknown) {
     return error.message;
   }
 
-  return 'Something went wrong. Please try again.';
+  return 'We could not send the reset link. Please try again.';
 }
 
 // Forgot Password Screen - validates an email and requests a password reset message.

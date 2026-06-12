@@ -37,13 +37,15 @@ Build the backend and route-data foundation that supports both the commuter and 
 - [x] Define vehicle freshness window
 - [x] Define route-relevance filter logic
 - [x] Define moderate ETA heuristic for MVP
+- [x] Build fare domain helpers, seeded tariff rules, and route fare-stop data
+- [x] Add commuter fare endpoint selection and ride-panel fare integration
 
 ## Driver tasks
 - [ ] Define `Larga` activation contract
 - [x] Define route-load failure behavior
 - [ ] Define arrival detection and manual end fallback
 - [x] Define return-trip confirmation behavior
-- [ ] Define simple off-route warning behavior
+- [x] Define simple off-route warning behavior
 - [ ] Define simple in-motion safety warning rule
 
 ## Deferred tasks

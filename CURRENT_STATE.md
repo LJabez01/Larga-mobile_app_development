@@ -1,6 +1,6 @@
 # LARGA Current State Audit
 
-Last reviewed: 2026-06-07
+Last reviewed: 2026-06-12
 
 ## Purpose
 
@@ -13,7 +13,7 @@ npm.cmd run typecheck
 npm.cmd test
 ```
 
-Current result: TypeScript passes, and the unit test suite passes 114 of 114 tests.
+Current result: TypeScript passes, and the unit test suite passes 152 of 152 tests.
 
 ## High-level progress
 
@@ -28,17 +28,55 @@ The strongest implemented area is the backend/domain foundation:
 - Stored routes and terminals are treated as the operational source of truth.
 - Route seed data, generated route geometry, and seed validation tests exist.
 - Drivers can select supported terminal pairs, start one active trip, publish GPS updates, and end the trip.
-- Commuters can publish GPS or manual reference presence and see route-relevant vehicles that can still pass their point.
+- Commuters can publish GPS presence and see route-relevant vehicles that can still pass their point.
 - Drivers can see route-relevant waiting commuters for their active route segment.
 
 The weakest implemented areas are product polish and user-facing completion:
 
-- Fare computation is still static and not origin/destination based.
-- The commuter ride-detail modal uses hardcoded values instead of the selected live vehicle.
+- Fare computation and route-stop selection are connected for the currently seeded fare-enabled routes, but selections are screen-local and route coverage is limited to seeded data.
+- The commuter ride-detail panel now follows the selected live vehicle and displays route-aware distance, ETA, and computed fare.
 - Notifications are fixture/presentation data, not a real notification system.
 - Account and preferences screens are mostly UI-only and do not persist changes.
 - Arrival detection, explicit off-route warnings, and in-motion safety warnings are not complete product functions.
 - Some planning checkboxes in `TASKS.md` are stale compared with the implementation.
+
+## Latest commuter and driver changes
+
+### Commuter-side changes
+
+- The map now follows the commuter's GPS point automatically.
+- Touching and exploring the map temporarily pauses automatic recentering; following resumes after an idle delay.
+- Commuters can now switch to a manual pickup-point flow that publishes the actual current map center when live location is unavailable or when the current point needs to be moved.
+- Old GPS-sourced commuter presence is no longer treated as a trusted current location when the app cannot get a fresh GPS fix in the current session; manual points still remain intentionally persistent.
+- Visible vehicles are ordered by ETA, with unavailable ETAs placed last.
+- ETA now uses recent moving-speed samples instead of relying only on one speed reading.
+- When a vehicle temporarily stops, the latest reliable ETA is held instead of immediately disappearing or jumping to an unrealistic value.
+- The selected live vehicle drives the ride-detail panel, including route, vehicle type, distance, ETA, and speed.
+- Boarding and drop-off controls now load route-direction-aware fare stops.
+- Normal and discounted fares are computed from the selected route, vehicle type, and fare endpoints.
+- New focused tests cover ETA behavior, fare rules, fare resolution, fare-stop ordering, and seeded fare data.
+
+Remaining commuter-side gaps:
+
+- Fare endpoint choices reset when the selected route changes and are not persisted across app restarts.
+- Fare computation is available only where the route and fare-stop data have been seeded.
+
+### Driver-side changes
+
+- The driver map now follows the active vehicle while a trip is running.
+- Automatic following pauses while the driver explores the map and resumes after an idle delay.
+- Camera padding now reacts to the expanded or collapsed trip panel so the vehicle is not hidden behind the overlay.
+- Starting a trip centers the vehicle first and then transitions to the route overview.
+- The active trip panel has a more compact layout for speed, distance, ETA, destination, route, and commuter visibility.
+- Stale or missing GPS state now appears as a visible warning with a manual-end fallback message.
+- Driver-facing validation and failure messages were simplified into clearer user language.
+
+Remaining driver-side gaps:
+
+- Arrival detection and destination-proximity handling are not implemented.
+- Return-trip preparation exists, but there is no explicit confirmation prompt.
+- Guidance fallback warnings exist, but there is no complete sustained off-route state or policy.
+- No in-motion interaction safety rule or warning has been implemented.
 
 ## Implemented functions
 
@@ -65,6 +103,7 @@ Implemented:
 - Registration through Firebase Auth.
 - Password-reset request through Firebase Auth.
 - First-sign-in user document creation.
+- Session hydration stays in a loading state until Firebase confirms the first authoritative auth result.
 - Registration intents for `Commuter`, `Driver`, and `Both`.
 - Session routing based on approved and pending role state.
 - Pending-driver-only accounts route to the pending access flow.
@@ -73,6 +112,7 @@ Implemented:
 Key files:
 
 - `Largaaaaaaaaaaaaa/services/auth/firebase-auth.ts`
+- `Largaaaaaaaaaaaaa/services/auth/auth-snapshot-store.ts`
 - `Largaaaaaaaaaaaaa/lib/domain/auth.ts`
 - `Largaaaaaaaaaaaaa/app/(auth)/login.tsx`
 - `Largaaaaaaaaaaaaa/app/(auth)/registration.tsx`
@@ -157,12 +197,14 @@ Key files:
 Implemented:
 
 - Commuter GPS presence publishing.
-- Manual fallback presence publishing.
 - Nearby route matching using route geometry.
 - Selected route filter.
 - Vehicle freshness filtering.
 - Route-position filtering so commuters see only vehicles that can still pass their point.
-- ETA estimate using live speed when available and a fallback speed when not.
+- Stop-aware ETA using recent moving-speed samples, with short-stop hold behavior.
+- ETA-based vehicle ordering.
+- Automatic commuter camera following with touch pause and idle resume.
+- Selected-vehicle ride details with route-aware fare-stop selection and computed normal or discounted fare.
 - Driver-side route-scoped commuter visibility through `routeCommuterPresence/{routeId}/commuters/{uid}`.
 
 Key files:
@@ -193,40 +235,50 @@ Key files:
 
 ### 1. Fare computation by origin and destination
 
-Status: Not implemented as an MVP-complete function.
+Status: Implemented for the currently seeded fare-enabled routes, with persistence and route-coverage limitations.
 
 What exists:
 
-- Vehicle markers currently carry static fare strings based on vehicle type.
-- The ride info panel uses hardcoded fare values.
+- A pure fare domain now exists with tariff validation, discount handling, and display helpers.
+- Seeded fare tariff rules and route fare stops now exist for the current fare-enabled routes.
+- A route-aware fare resolver now supports distance-based base fare and discounted fare resolution from `routeId`, `vehicleType`, `fareOriginLocationId`, and `fareDestinationLocationId`.
+- The commuter ride panel now lets the commuter choose boarding and drop-off points from route-direction-aware fare stop options.
+- The commuter ride panel now resolves normal and discounted fare values from the seeded fare domain instead of parsing the selected vehicle's static fare string.
 
 What is missing:
 
-- No origin/destination fare matrix.
-- No commuter origin/drop-off input flow.
-- No fare computation service based on selected origin and destination.
-- No discounted fare rule implementation beyond static UI buttons.
+- Vehicle markers in the live-data service still carry legacy static fare strings for compatibility, even though the commuter ride panel no longer uses them as its fare source of truth.
+- The commuter fare endpoint selection is currently screen-local state and resets when the selected route direction changes.
+- The commuter presence/session model does not persist fare endpoint selection across route-context changes or app restarts.
 
 Relevant files:
 
 - `Largaaaaaaaaaaaaa/services/live-data/firebase-live-data.ts`
 - `Largaaaaaaaaaaaaa/components/map/RideInfoPanel.tsx`
+- `Largaaaaaaaaaaaaa/components/map/commuter/commutermapscreen.tsx`
+- `Largaaaaaaaaaaaaa/lib/domain/commuter-fare.ts`
+- `Largaaaaaaaaaaaaa/lib/domain/fare.ts`
+- `Largaaaaaaaaaaaaa/lib/domain/fare-resolution.ts`
+- `Largaaaaaaaaaaaaa/lib/seed/transport-fare.ts`
 - `PRD.md`
 
 ### 2. Live commuter ride-detail panel
 
-Status: Partially implemented.
+Status: Implemented for the active screen session, with persistence limitations.
 
 What exists:
 
 - Commuters can tap visible bus or jeep markers.
 - A ride info modal opens.
+- The panel now receives the selected live vehicle record.
+- Route distance and ETA now come from route-aware vehicle visibility.
+- The panel now exposes route-aware boarding and drop-off selection chips for the selected vehicle's route direction.
+- The fare mode toggle now switches between resolved normal and discounted fare values after both fare endpoints are selected.
 
 What is missing:
 
-- The modal does not receive the selected live vehicle record.
-- Route, speed, distance, ETA, and fare shown in the modal are hardcoded.
-- If multiple vehicles of the same type are visible, the panel cannot distinguish which exact vehicle was selected.
+- The panel does not yet persist fare endpoint selections beyond the current commuter screen session.
+- The live-data contract still contains the selected vehicle's legacy static `fare` string even though the panel no longer depends on it.
 
 Relevant file:
 
@@ -383,19 +435,21 @@ Relevant files:
 - `Largaaaaaaaaaaaaa/components/map/driver/drivermapscreen.tsx`
 - `TASKS.md`
 
-### 10. Manual commuter reference point accuracy
+### 10. Manual commuter reference fallback
 
-Status: Partially implemented.
+Status: Implemented.
 
 What exists:
 
-- A "Use map center" manual fallback button exists.
-- Manual presence is published with `referenceSource: 'manual'`.
+- The live-data contract and presence domain still support `referenceSource: 'manual'`.
+- The commuter map has camera control and can detect when the user is exploring the map.
+- The commuter UI can enter a dedicated manual pickup-point mode and publish the actual current map center as commuter presence.
+- Manual reference mode pauses GPS-driven automatic recentering so the user can move the map without fighting the camera.
+- The commuter can switch back to live GPS from the ride panel after a manual point has been saved.
 
 What is missing:
 
-- The current handler uses `INITIAL_CENTER_COORDINATE`, not the actual current Mapbox camera center.
-- This means "Use map center" does not yet reflect where the user has panned the map.
+- There is no manual place-search flow yet; the current fallback is pin-based only.
 
 Relevant file:
 
@@ -487,14 +541,13 @@ Recommended documentation cleanup:
 
 ## Recommended next implementation order
 
-1. Connect `RideInfoPanel` to selected live vehicle data instead of hardcoded vehicle-type data.
-2. Implement fare computation rules using route, origin, destination, and discount type.
-3. Fix manual commuter reference so it uses the actual current map center.
-4. Add automatic arrival detection plus a clear manual fallback/return prompt.
-5. Add explicit off-route warning state and UI copy.
-6. Replace notification fixtures with a real notification data source or remove out-of-scope fixture claims.
-7. Connect account/profile and preference screens to persistent data, or mark them as non-MVP placeholders.
-8. Run Firebase emulator rules smoke tests and live seed checks before claiming backend readiness.
+1. Add automatic arrival detection plus a clear manual fallback/return prompt.
+2. Add explicit off-route warning state and UI copy.
+3. Replace notification fixtures with a real notification data source or remove out-of-scope fixture claims.
+4. Decide whether commuter fare endpoint selections should stay screen-local or be persisted in live-data state.
+5. Remove or repurpose the legacy static vehicle `fare` field now that the commuter ride panel resolves fares from the seeded domain.
+6. Connect account/profile and preference screens to persistent data, or mark them as non-MVP placeholders.
+7. Run Firebase emulator rules smoke tests and live seed checks before claiming backend readiness.
 
 ## Current completion summary
 
@@ -506,13 +559,14 @@ Implemented enough for an MVP foundation:
 - Driver active trip lifecycle
 - Driver live location publishing
 - Commuter route-aware presence and visibility
+- Stop-aware commuter ETA and ETA ordering
+- Selected-vehicle ride details and seeded route-aware fare computation
+- Commuter and driver automatic map following with touch pause and idle resume
 - Driver route-scoped commuter visibility
 - Domain and service unit coverage
 
 Not implemented enough for feature-complete MVP:
 
-- Real fare computation
-- Live selected-vehicle ride detail
 - Real notifications
 - Profile/preferences persistence
 - Arrival detection

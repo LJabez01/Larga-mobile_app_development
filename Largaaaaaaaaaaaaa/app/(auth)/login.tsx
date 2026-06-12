@@ -15,6 +15,7 @@ import { Redirect, useRouter, type Href } from 'expo-router';
 
 import FormErrorText from '../../components/FormErrorText';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
+import { normalizePasswordInput } from '@/lib/domain/auth-inputs';
 import { validateLoginForm } from '../../validations/validation';
 
 const PRIMARY = '#10B981';
@@ -29,7 +30,7 @@ function getFriendlyAuthError(error: unknown) {
     return error.message;
   }
 
-  return 'Something went wrong. Please try again.';
+  return 'We could not sign you in. Please try again.';
 }
 
 // Login Screen - validates credentials and starts the Firebase-backed sign-in flow.
@@ -131,8 +132,10 @@ export default function LoginScreen() {
               placeholderTextColor="#9CA3AF"
               secureTextEntry={!showPassword}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(value) => setPassword(normalizePasswordInput(value))}
               onBlur={() => setTouched({ ...touched, password: true })}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
             <TouchableOpacity
               onPress={() => setShowPassword((showing) => !showing)}

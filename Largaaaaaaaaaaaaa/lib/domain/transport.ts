@@ -86,6 +86,28 @@ export interface DriverTripMetrics {
   etaMinutes: number | null;
 }
 
+export interface DriverArrivalState {
+  directDistanceMeters: number | null;
+  remainingDistanceMeters: number | null;
+  isArrivalReady: boolean;
+  isPromptRearmReady: boolean;
+}
+
+export interface DriverOffRouteState {
+  routeDistanceMeters: number | null;
+  isWarningVisible: boolean;
+  isWarningClearReady: boolean;
+  warningMessage: string | null;
+}
+
+export interface DriverInMotionSafetyWarningState {
+  interactionCount: number;
+  isInteractionBurst: boolean;
+  isCooldownActive: boolean;
+  shouldTriggerWarning: boolean;
+  warningMessage: string | null;
+}
+
 export const VEHICLE_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
 export const DRIVER_GUIDANCE_REROUTE_DISTANCE_METERS = 120;
 export const DRIVER_GUIDANCE_OFF_ROUTE_DISTANCE_METERS = 80;
@@ -94,6 +116,22 @@ export const DRIVER_GUIDANCE_MIN_REFRESH_INTERVAL_MS = 15 * 1000;
 export const DRIVER_GUIDANCE_MAX_DIRECTIONS_COORDINATES = 25;
 export const DRIVER_GUIDANCE_PROGRESS_BACKTRACK_SEGMENTS = 6;
 export const DRIVER_GUIDANCE_TERMINAL_START_SEGMENT_WINDOW = 8;
+export const DRIVER_ARRIVAL_CONFIRM_DIRECT_DISTANCE_METERS = 90;
+export const DRIVER_ARRIVAL_CONFIRM_ROUTE_DISTANCE_METERS = 140;
+export const DRIVER_ARRIVAL_REARM_DIRECT_DISTANCE_METERS = (
+  DRIVER_ARRIVAL_CONFIRM_DIRECT_DISTANCE_METERS + DRIVER_GUIDANCE_OFF_ROUTE_DISTANCE_METERS
+);
+export const DRIVER_ARRIVAL_REARM_ROUTE_DISTANCE_METERS = (
+  DRIVER_ARRIVAL_CONFIRM_ROUTE_DISTANCE_METERS + DRIVER_GUIDANCE_OFF_ROUTE_DISTANCE_METERS
+);
+export const DRIVER_OFF_ROUTE_WARNING_CLEAR_DISTANCE_METERS = 40;
+export const DRIVER_IN_MOTION_WARNING_MIN_SPEED_KPH = 10;
+export const DRIVER_IN_MOTION_WARNING_INTERACTION_WINDOW_MS = 8 * 1000;
+export const DRIVER_IN_MOTION_WARNING_MIN_INTERACTIONS = 3;
+export const DRIVER_IN_MOTION_WARNING_INTERACTION_MIN_GAP_MS = 1200;
+export const DRIVER_IN_MOTION_WARNING_COOLDOWN_MS = 15 * 1000;
+const DRIVER_OFF_ROUTE_WARNING_MESSAGE = 'You seem to be off route. Rejoin the highlighted corridor when safe.';
+const DRIVER_IN_MOTION_WARNING_MESSAGE = 'You are moving. Avoid using the screen until it is safe.';
 
 const DRIVER_GUIDANCE_CORRIDOR_ANCHOR_SPACING_METERS = 1_200;
 const DRIVER_GUIDANCE_CORRIDOR_TURN_THRESHOLD_DEGREES = 20;
@@ -441,6 +479,187 @@ export function buildDriverTripMetrics(
     distanceMeters,
     etaMinutes,
   };
+}
+
+// Driver Arrival State - determines whether the driver is close enough to safely show an arrival confirmation prompt.
+export function resolveDriverArrivalState(
+  guidance: DriverGuidanceState | null,
+  locationStatus: DriverLocationStatus,
+): DriverArrivalState {
+  if (!guidance || locationStatus !== 'live' || guidance.mode === 'route-unavailable') {
+    return {
+      directDistanceMeters: null,
+      remainingDistanceMeters: null,
+      isArrivalReady: false,
+      isPromptRearmReady: false,
+    };
+  }
+
+  const directDistanceMeters = getCoordinateDistanceMeters(
+    guidance.originCoordinate,
+    guidance.destinationCoordinate,
+  );
+  const routePathCoordinates = mergeRouteCoordinateSegments(
+    guidance.connectorCoordinates ?? [],
+    guidance.routeCoordinates ?? [],
+  );
+  const remainingDistanceMeters = routePathCoordinates.length >= 2
+    ? getPathDistanceMeters(routePathCoordinates)
+    : directDistanceMeters;
+
+  return {
+    directDistanceMeters,
+    remainingDistanceMeters,
+    isArrivalReady: Number.isFinite(directDistanceMeters)
+      && Number.isFinite(remainingDistanceMeters)
+      && directDistanceMeters <= DRIVER_ARRIVAL_CONFIRM_DIRECT_DISTANCE_METERS
+      && remainingDistanceMeters <= DRIVER_ARRIVAL_CONFIRM_ROUTE_DISTANCE_METERS,
+    isPromptRearmReady: Number.isFinite(directDistanceMeters)
+      && Number.isFinite(remainingDistanceMeters)
+      && directDistanceMeters >= DRIVER_ARRIVAL_REARM_DIRECT_DISTANCE_METERS
+      && remainingDistanceMeters >= DRIVER_ARRIVAL_REARM_ROUTE_DISTANCE_METERS,
+  };
+}
+
+// Driver Off-Route State - determines whether the live driver should see a stable off-route warning.
+export function resolveDriverOffRouteState(
+  guidance: DriverGuidanceState | null,
+  locationStatus: DriverLocationStatus,
+): DriverOffRouteState {
+  if (
+    !guidance
+    || locationStatus !== 'live'
+    || guidance.mode === 'route-unavailable'
+    || !guidance.routeCoordinates
+    || guidance.routeCoordinates.length < 2
+  ) {
+    return {
+      routeDistanceMeters: null,
+      isWarningVisible: false,
+      isWarningClearReady: false,
+      warningMessage: null,
+    };
+  }
+
+  const routeDistanceMeters = getRouteDistanceMeters(
+    guidance.originCoordinate,
+    guidance.routeCoordinates,
+  );
+
+  if (!Number.isFinite(routeDistanceMeters)) {
+    return {
+      routeDistanceMeters: null,
+      isWarningVisible: false,
+      isWarningClearReady: false,
+      warningMessage: null,
+    };
+  }
+
+  return {
+    routeDistanceMeters,
+    isWarningVisible: routeDistanceMeters >= DRIVER_GUIDANCE_OFF_ROUTE_DISTANCE_METERS,
+    isWarningClearReady: routeDistanceMeters <= DRIVER_OFF_ROUTE_WARNING_CLEAR_DISTANCE_METERS,
+    warningMessage: routeDistanceMeters > DRIVER_OFF_ROUTE_WARNING_CLEAR_DISTANCE_METERS
+      ? DRIVER_OFF_ROUTE_WARNING_MESSAGE
+      : null,
+  };
+}
+
+// Driver Guidance Warning Message - resolves whether off-route or guidance fallback text should occupy the warning slot.
+export function resolveDriverGuidanceWarningMessage(
+  guidanceWarningMessage: string | null,
+  offRouteState: DriverOffRouteState,
+  isOffRouteWarningLatched: boolean,
+) {
+  const shouldUseOffRouteWarning = offRouteState.isWarningVisible
+    || (isOffRouteWarningLatched && Boolean(offRouteState.warningMessage));
+
+  return shouldUseOffRouteWarning
+    ? offRouteState.warningMessage
+    : guidanceWarningMessage;
+}
+
+interface ResolveDriverInMotionSafetyWarningStateInput {
+  locationStatus: DriverLocationStatus;
+  speedKph: number | null;
+  interactionTimestamps: ReadonlyArray<number>;
+  lastWarningAtMs: number | null;
+  now?: number;
+}
+
+// In-Motion Interaction Timestamp Appender - prunes stale entries and dedupes touch bursts from the same gesture.
+export function appendDriverInMotionInteractionTimestamp(
+  interactionTimestamps: ReadonlyArray<number>,
+  now = Date.now(),
+) {
+  const recentInteractionTimestamps = interactionTimestamps.filter((timestampMs) => (
+    Number.isFinite(timestampMs)
+    && timestampMs <= now
+    && (now - timestampMs) <= DRIVER_IN_MOTION_WARNING_INTERACTION_WINDOW_MS
+  ));
+  const lastInteractionTimestamp = recentInteractionTimestamps[recentInteractionTimestamps.length - 1] ?? null;
+
+  if (
+    lastInteractionTimestamp !== null
+    && (now - lastInteractionTimestamp) < DRIVER_IN_MOTION_WARNING_INTERACTION_MIN_GAP_MS
+  ) {
+    return recentInteractionTimestamps;
+  }
+
+  return [...recentInteractionTimestamps, now];
+}
+
+// In-Motion Safety Warning State - shows a non-blocking caution when a live, moving driver keeps tapping the screen.
+export function resolveDriverInMotionSafetyWarningState({
+  locationStatus,
+  speedKph,
+  interactionTimestamps,
+  lastWarningAtMs,
+  now = Date.now(),
+}: ResolveDriverInMotionSafetyWarningStateInput): DriverInMotionSafetyWarningState {
+  const interactionCount = interactionTimestamps.filter((timestampMs) => (
+    Number.isFinite(timestampMs)
+    && timestampMs <= now
+    && (now - timestampMs) <= DRIVER_IN_MOTION_WARNING_INTERACTION_WINDOW_MS
+  )).length;
+  const isInteractionBurst = interactionCount >= DRIVER_IN_MOTION_WARNING_MIN_INTERACTIONS;
+  const isDriverMoving = locationStatus === 'live'
+    && speedKph !== null
+    && Number.isFinite(speedKph)
+    && speedKph >= DRIVER_IN_MOTION_WARNING_MIN_SPEED_KPH;
+  const isCooldownActive = lastWarningAtMs !== null
+    && Number.isFinite(lastWarningAtMs)
+    && (now - lastWarningAtMs) < DRIVER_IN_MOTION_WARNING_COOLDOWN_MS;
+  const shouldTriggerWarning = isDriverMoving && isInteractionBurst && !isCooldownActive;
+  const shouldKeepWarningVisible = isDriverMoving && (isCooldownActive || shouldTriggerWarning);
+
+  return {
+    interactionCount,
+    isInteractionBurst,
+    isCooldownActive,
+    shouldTriggerWarning,
+    warningMessage: shouldKeepWarningVisible
+      ? DRIVER_IN_MOTION_WARNING_MESSAGE
+      : null,
+  };
+}
+
+// Active Driver Warning Message - gives urgent in-motion caution priority over lower-severity route guidance text.
+export function resolveDriverActiveWarningMessage(
+  inMotionSafetyWarningMessage: string | null,
+  guidanceWarningMessage: string | null,
+  offRouteState: DriverOffRouteState,
+  isOffRouteWarningLatched: boolean,
+) {
+  if (inMotionSafetyWarningMessage) {
+    return inMotionSafetyWarningMessage;
+  }
+
+  return resolveDriverGuidanceWarningMessage(
+    guidanceWarningMessage,
+    offRouteState,
+    isOffRouteWarningLatched,
+  );
 }
 
 // Route Connector Coordinates - draws a connector only when the driver is meaningfully off the route line.

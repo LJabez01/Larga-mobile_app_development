@@ -26,7 +26,7 @@ export interface UploadedDriverIdImage {
 // Cloudinary Upload URL - validates public upload config and builds the unsigned upload endpoint.
 function getCloudinaryUploadUrl() {
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error('Driver document upload is not configured yet. Add the Cloudinary public env values and restart the app.');
+    throw new Error('ID upload is not available right now.');
   }
 
   return `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
@@ -73,18 +73,18 @@ export async function uploadDriverIdImage(uid: string, imageUri: string): Promis
   const validationResponse = await fetch(imageUri);
 
   if (!validationResponse.ok) {
-    throw new Error('We could not read the selected ID image. Please choose the file again.');
+    throw new Error('We could not open that image. Please choose it again.');
   }
 
   const imageBlob = await validationResponse.blob();
   const mimeType = inferImageMimeType(imageUri, imageBlob.type);
 
   if (!ALLOWED_DRIVER_ID_IMAGE_TYPES.has(mimeType)) {
-    throw new Error('Please upload a JPG, PNG, or HEIC image for driver verification.');
+    throw new Error('Use a JPG, PNG, or HEIC image.');
   }
 
   if (imageBlob.size > MAX_DRIVER_ID_IMAGE_BYTES) {
-    throw new Error('The selected ID image is too large. Please use an image smaller than 5 MB.');
+    throw new Error('Choose an image smaller than 5 MB.');
   }
 
   const formData = new FormData();
@@ -103,7 +103,7 @@ export async function uploadDriverIdImage(uid: string, imageUri: string): Promis
   const payload = await uploadResponse.json() as CloudinaryUploadResponse;
 
   if (!uploadResponse.ok || !payload.secure_url || !payload.public_id) {
-    throw new Error(payload.error?.message || 'Driver document upload failed. Please try again.');
+    throw new Error(payload.error?.message || 'We could not upload your ID. Please try again.');
   }
 
   return {

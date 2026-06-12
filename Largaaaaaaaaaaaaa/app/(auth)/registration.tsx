@@ -18,6 +18,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ImageCropper from '../../components/ImageCropper';
 import FormErrorText from '../../components/FormErrorText';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
+import {
+  MAX_USERNAME_LENGTH,
+  normalizePasswordInput,
+  normalizeUsernameInput,
+  sanitizeUsernameDraft,
+} from '@/lib/domain/auth-inputs';
 import styles from './registration.styles';
 import { validateRegistrationForm, type RegistrationRole, type VehicleType } from '../../validations/validation';
 
@@ -91,7 +97,7 @@ export default function CreateAccountScreen() {
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
 
     if (galleryStatus !== 'granted' || cameraStatus !== 'granted') {
-      Alert.alert('Permission required', 'Camera and photo library access are required to upload an ID.');
+      Alert.alert('Permission needed', 'Allow camera and photo access to upload your ID.');
       return;
     }
 
@@ -169,7 +175,7 @@ export default function CreateAccountScreen() {
       await register({
         email,
         password,
-        displayName: username,
+        displayName: normalizeUsernameInput(username),
         requestedRole: selectedRole,
         selectedVehicle,
         plateNumber,
@@ -178,7 +184,7 @@ export default function CreateAccountScreen() {
       });
       router.push('/guideline');
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+      setAuthError(error instanceof Error ? error.message : 'We could not create your account. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -220,9 +226,14 @@ export default function CreateAccountScreen() {
                   placeholder="Username"
                   placeholderTextColor="#9CA3AF"
                   value={username}
-                  onChangeText={setUsername}
-                  onBlur={() => setTouched({ ...touched, username: true })}
+                  onChangeText={(value) => setUsername(sanitizeUsernameDraft(value))}
+                  onBlur={() => {
+                    setUsername((currentValue) => normalizeUsernameInput(currentValue));
+                    setTouched({ ...touched, username: true });
+                  }}
                   autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={MAX_USERNAME_LENGTH}
                 />
               </View>
             </View>
@@ -263,9 +274,11 @@ export default function CreateAccountScreen() {
                   placeholder="Password"
                   placeholderTextColor="#9CA3AF"
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(value) => setPassword(normalizePasswordInput(value))}
                   onBlur={() => setTouched({ ...touched, password: true })}
                   secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
@@ -290,9 +303,11 @@ export default function CreateAccountScreen() {
                   placeholder="Confirm Password"
                   placeholderTextColor="#9CA3AF"
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  onChangeText={(value) => setConfirmPassword(normalizePasswordInput(value))}
                   onBlur={() => setTouched({ ...touched, confirmPassword: true })}
                   secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                 />
                 <TouchableOpacity
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}

@@ -22,6 +22,8 @@ import {
   type AppRole,
   type SelfServiceRole,
 } from '@/lib/domain/auth';
+import { normalizePasswordInput, normalizeUsernameInput } from '@/lib/domain/auth-inputs';
+import { syncUserDisplayName } from '@/services/users';
 import type {
   AppSession,
   AuthService,
@@ -29,6 +31,7 @@ import type {
   RegisterInput,
   SignInInput,
 } from '@/services/contracts/auth';
+import { createAuthSnapshotStore } from '@/services/auth/auth-snapshot-store';
 import { createDriverApplication } from '@/services/driver-applications/firebase-driver-applications';
 
 interface FirebaseUserDocument {
@@ -44,24 +47,12 @@ interface FirebaseUserDocument {
   updatedAt: string;
 }
 
-const listeners = new Set<(snapshot: AuthSnapshot) => void>();
-
 let subscribed = false;
-let currentSnapshot: AuthSnapshot = {
-  status: 'signedOut',
-  session: null,
-};
-
-// Snapshot Broadcast - sends the latest auth snapshot to all active listeners.
-function notify() {
-  listeners.forEach((listener) => listener(currentSnapshot));
-}
+const authSnapshotStore = createAuthSnapshotStore();
 
 // Snapshot Update - stores the latest auth state and immediately broadcasts it.
 function updateSnapshot(snapshot: AuthSnapshot): AuthSnapshot {
-  currentSnapshot = snapshot;
-  notify();
-  return currentSnapshot;
+  return authSnapshotStore.publish(snapshot);
 }
 
 // Registration Role State - translates requested signup role into approved and pending role arrays.
@@ -233,39 +224,49 @@ async function ensureUserDocument(user: Pick<User, 'uid' | 'email' | 'displayNam
   return userDoc;
 }
 
+// Profile Update - persists a new display name to both Firebase Auth and the Firestore user document.
+async function updateUserProfileDisplayName(user: User, nextDisplayName: string) {
+  const normalizedDisplayName = normalizeUsernameInput(nextDisplayName);
+
+  if (!normalizedDisplayName) {
+    throw new Error('Enter your full name before saving.');
+  }
+
+  const userRef = doc(db, 'users', user.uid);
+  const existingSnapshot = await getDoc(userRef);
+  const normalizedUserDoc = existingSnapshot.exists()
+    ? normalizeUserDocument(user, existingSnapshot.data() as Partial<FirebaseUserDocument>, normalizedDisplayName)
+    : await ensureUserDocument(user, normalizedDisplayName);
+  const updatedUserDoc = syncUserDisplayName(normalizedUserDoc, normalizedDisplayName);
+
+  await updateProfile(user, { displayName: normalizedDisplayName });
+  await setDoc(userRef, updatedUserDoc);
+
+  return updatedUserDoc;
+}
+
 // Firebase Auth Adapter - exposes the shared auth contract using real Firebase behavior.
 export const firebaseAuthService: AuthService = {
   // Session Fetch - hydrates the current Firebase user into the shared auth snapshot.
   async getSession() {
     ensureSubscribed();
-
-    if (!auth.currentUser) {
-      return currentSnapshot;
-    }
-
-    const userDoc = await ensureUserDocument(auth.currentUser);
-
-    return updateSnapshot({
-      status: 'signedIn',
-      session: toSession(userDoc),
-    });
+    return authSnapshotStore.getInitialSnapshot();
   },
 
   // Session Subscribe - attaches a listener to shared auth state and returns an unsubscribe callback.
   subscribe(listener) {
     ensureSubscribed();
-    listeners.add(listener);
-    listener(currentSnapshot);
-
-    return () => {
-      listeners.delete(listener);
-    };
+    return authSnapshotStore.subscribe(listener);
   },
 
   // Firebase Sign In - authenticates credentials and syncs the matching Firestore profile.
   async signIn(input: SignInInput) {
     ensureSubscribed();
-    const credential = await signInWithEmailAndPassword(auth, input.email.trim(), input.password);
+    const credential = await signInWithEmailAndPassword(
+      auth,
+      input.email.trim(),
+      normalizePasswordInput(input.password),
+    );
     const userDoc = await ensureUserDocument(credential.user);
 
     return updateSnapshot({
@@ -277,11 +278,17 @@ export const firebaseAuthService: AuthService = {
   // Firebase Register - creates the auth user, profile, and driver application when needed.
   async register(input: RegisterInput) {
     ensureSubscribed();
-    const credential = await createUserWithEmailAndPassword(auth, input.email.trim(), input.password);
+    const normalizedDisplayName = normalizeUsernameInput(input.displayName);
+    const normalizedPassword = normalizePasswordInput(input.password);
+    const credential = await createUserWithEmailAndPassword(
+      auth,
+      input.email.trim(),
+      normalizedPassword,
+    );
 
     try {
-      if (input.displayName.trim()) {
-        await updateProfile(credential.user, { displayName: input.displayName.trim() });
+      if (normalizedDisplayName) {
+        await updateProfile(credential.user, { displayName: normalizedDisplayName });
       }
 
       const timestamp = new Date().toISOString();
@@ -289,7 +296,7 @@ export const firebaseAuthService: AuthService = {
       const userDoc: FirebaseUserDocument = {
         uid: credential.user.uid,
         email: credential.user.email ?? input.email.trim(),
-        displayName: resolveDisplayName(credential.user, input.displayName),
+        displayName: resolveDisplayName(credential.user, normalizedDisplayName),
         phoneNumber: null,
         approvedRoles: roleState.approvedRoles,
         pendingRoleRequests: roleState.pendingRoleRequests,
@@ -317,6 +324,22 @@ export const firebaseAuthService: AuthService = {
   // Password Reset Request - sends Firebase's reset email to the requested account.
   async requestPasswordReset(input) {
     await sendPasswordResetEmail(auth, input.email.trim());
+  },
+
+  // Profile Update - saves the signed-in user's display name and refreshes the shared session snapshot.
+  async updateProfile(input) {
+    ensureSubscribed();
+
+    if (!auth.currentUser) {
+      throw new Error('Sign in again to update your profile.');
+    }
+
+    const userDoc = await updateUserProfileDisplayName(auth.currentUser, input.displayName);
+
+    return updateSnapshot({
+      status: 'signedIn',
+      session: toSession(userDoc),
+    });
   },
 
   // Firebase Sign Out - clears the active user and publishes a signed-out snapshot.

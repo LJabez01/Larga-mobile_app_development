@@ -42,12 +42,17 @@ export interface PasswordResetInput {
   email: string;
 }
 
+export interface UpdateProfileInput {
+  displayName: string;
+}
+
 export interface AuthService {
   getSession(): Promise<AuthSnapshot>;
   subscribe(listener: (snapshot: AuthSnapshot) => void): () => void;
   signIn(input: SignInInput): Promise<AuthSnapshot>;
   register(input: RegisterInput): Promise<AuthSnapshot>;
   requestPasswordReset(input: PasswordResetInput): Promise<void>;
+  updateProfile(input: UpdateProfileInput): Promise<AuthSnapshot>;
   signOut(): Promise<AuthSnapshot>;
   reset(): Promise<void>;
 }

@@ -39,26 +39,26 @@ function isFirebaseError(error: unknown): error is AuthError {
 // Auth Error Message - converts Firebase Auth codes into user-facing form messages.
 export function getAuthErrorMessage(error: unknown): string {
   if (!isFirebaseError(error)) {
-    return 'Something went wrong. Please try again.';
+    return 'Please try again.';
   }
 
   switch (error.code) {
     case 'auth/email-already-in-use':
-      return 'That email is already in use.';
+      return 'This email is already in use.';
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
-      return 'Email or password is incorrect.';
+      return 'Your email or password is incorrect.';
     case 'auth/invalid-email':
-      return 'Enter a valid email address.';
+      return 'Enter a valid email.';
     case 'auth/network-request-failed':
-      return 'Network error. Check your connection and try again.';
+      return 'Check your internet connection and try again.';
     case 'auth/too-many-requests':
-      return 'Too many attempts. Please wait a bit before trying again.';
+      return 'Too many tries. Please wait and try again.';
     case 'auth/weak-password':
-      return 'Password is too weak for Firebase Auth.';
+      return 'Use a stronger password.';
     default:
-      return 'Something went wrong. Please try again.';
+      return 'Please try again.';
   }
 }
 

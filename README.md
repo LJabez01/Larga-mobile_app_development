@@ -67,6 +67,7 @@ Note:
 - [TASKS.md](/C:/Users/Carl%20Lester/OneDrive/Documents/GitHub/Larga-mobile_app_development/TASKS.md)
 - [CONSTRAINTS.md](/C:/Users/Carl%20Lester/OneDrive/Documents/GitHub/Larga-mobile_app_development/CONSTRAINTS.md)
 - [IMPLEMENTATION.md](/C:/Users/Carl%20Lester/OneDrive/Documents/GitHub/Larga-mobile_app_development/IMPLEMENTATION.md)
+- [Real Device Validation Plan](/C:/Users/Carl%20Lester/OneDrive/Documents/GitHub/Larga-mobile_app_development/Largaaaaaaaaaaaaa/docs/real-device-validation-plan.md)
 
 Feature design references:
 - [Commuter Feature Design](/C:/Users/Carl%20Lester/OneDrive/Documents/GitHub/Larga-mobile_app_development/Largaaaaaaaaaaaaa/docs/superpowers/specs/2026-05-03-commuter-feature-design.md)

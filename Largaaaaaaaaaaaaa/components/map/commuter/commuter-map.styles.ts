@@ -8,8 +8,6 @@ export const commuterStyles = StyleSheet.create({
   map: {
     flex: 1,
   },
-
-  // ── Search overlay (full-screen top sheet) ──────────────────────────────
   searchOverlay: {
     position: 'absolute',
     top: 0,
@@ -70,8 +68,6 @@ export const commuterStyles = StyleSheet.create({
     fontSize: 14,
     color: '#94a3b8',
   },
-
-  // ── Top bar ─────────────────────────────────────────────────────────────
   topBarRow: {
     position: 'absolute',
     top: 54,
@@ -101,8 +97,6 @@ export const commuterStyles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#ffffff',
   },
-
-  // ── Search bar pill ──────────────────────────────────────────────────────
   searchBar: {
     flex: 1,
     flexDirection: 'row',
@@ -131,8 +125,103 @@ export const commuterStyles = StyleSheet.create({
   searchInputSelected: {
     color: '#ffffff',
   },
-
-  // ── Map vehicle markers ──────────────────────────────────────────────────
+  manualReferenceCrosshair: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -21,
+    marginTop: -42,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    borderColor: '#10b981',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9,
+  },
+  manualReferencePointer: {
+    position: 'absolute',
+    bottom: -10,
+    width: 2,
+    height: 12,
+    borderRadius: 1,
+    backgroundColor: '#10b981',
+  },
+  manualReferenceBar: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 20,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 16,
+    zIndex: 12,
+  },
+  manualReferenceTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  manualReferenceEyebrow: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#10b981',
+    textTransform: 'uppercase',
+  },
+  manualReferenceTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  manualReferenceButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  manualReferenceButton: {
+    minHeight: 38,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  manualReferenceButtonGhost: {
+    borderColor: '#cbd5e1',
+    backgroundColor: '#ffffff',
+  },
+  manualReferenceButtonPrimary: {
+    borderColor: '#10b981',
+    backgroundColor: '#10b981',
+  },
+  manualReferenceButtonDisabled: {
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  manualReferenceButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  manualReferenceButtonTextGhost: {
+    color: '#64748b',
+  },
+  manualReferenceButtonTextPrimary: {
+    color: '#ffffff',
+  },
+  manualReferenceButtonTextDisabled: {
+    color: '#94a3b8',
+  },
   mapVehicleButton: {
     width: 46,
     height: 46,

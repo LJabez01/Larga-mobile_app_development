@@ -178,13 +178,13 @@ export async function getDriverApplicationDetail(applicationId: string) {
   const applicationSnapshot = await getDoc(doc(db, 'roleApplications', applicationId));
 
   if (!applicationSnapshot.exists()) {
-    throw new Error('Driver application not found.');
+    throw new Error('We cannot find your driver application.');
   }
 
   const application = await buildDriverApplication(applicationSnapshot.id, applicationSnapshot.data());
 
   if (!application) {
-    throw new Error('Driver application is malformed.');
+    throw new Error('We could not read your driver application details.');
   }
 
   return application;
@@ -196,17 +196,17 @@ export async function saveDriverApplicationChanges(input: SaveDriverApplicationI
   const applicationSnapshot = await getDoc(applicationRef);
 
   if (!applicationSnapshot.exists()) {
-    throw new Error('Driver application not found.');
+    throw new Error('We cannot find your driver application.');
   }
 
   const existing = applicationSnapshot.data() as FirestoreDriverApplicationRecord;
 
   if (typeof existing.uid !== 'string' || existing.uid !== input.uid || existing.requestedRole !== 'driver') {
-    throw new Error('Driver application is malformed.');
+    throw new Error('We could not read your driver application details.');
   }
 
   if (existing.status !== 'pending' && existing.status !== 'needs_resubmission') {
-    throw new Error('This application cannot be edited right now.');
+    throw new Error('You cannot edit this application right now.');
   }
 
   const existingDocuments = getDriverDocuments(existing.documents);
@@ -218,7 +218,7 @@ export async function saveDriverApplicationChanges(input: SaveDriverApplicationI
   }, existingDocuments);
 
   if (!nextDocuments.idImageUrl || !nextDocuments.idImagePath) {
-    throw new Error('Please upload a valid ID image before resubmitting.');
+    throw new Error('Upload your ID before sending again.');
   }
 
   await setDoc(applicationRef, {

@@ -38,9 +38,16 @@ import {
   type TransportLocationSeed,
 } from '@/lib/seed/transport-location-inventory';
 import {
+  appendDriverInMotionInteractionTimestamp,
+  DRIVER_IN_MOTION_WARNING_COOLDOWN_MS,
+  DRIVER_IN_MOTION_WARNING_MIN_SPEED_KPH,
   buildDriverTripMetrics,
   getSelectableTerminalIds,
   isDistinctTerminalPair,
+  resolveDriverActiveWarningMessage,
+  resolveDriverArrivalState,
+  resolveDriverInMotionSafetyWarningState,
+  resolveDriverOffRouteState,
   type TerminalOption,
   type RouteCoordinate,
   type DriverTerminalTarget,
@@ -194,12 +201,8 @@ function formatRelativeTime(isoTimestamp: string | null) {
   return `${Math.floor(diffHours / 24)}d ago`;
 }
 
-// Signal Support Text - explains live, stale, missing, or idle GPS state inside the trip panel.
-function buildSignalSupportText(status: 'idle' | 'live' | 'stale' | 'missing', recordedAt: string | null) {
-  if (status === 'live') {
-    return `Last update ${formatRelativeTime(recordedAt)}.`;
-  }
-
+// Signal Support Text - explains stale, missing, or idle GPS state inside the trip panel.
+function buildSignalSupportText(status: 'idle' | 'live' | 'stale' | 'missing') {
   if (status === 'stale') {
     return 'GPS updates are delayed. Keep the trip active while signal returns, or end the trip manually when needed.';
   }
@@ -270,6 +273,17 @@ const TRIP_PANEL_COLLAPSED_CONTROL_HEIGHT = 56;
 const TRIP_PANEL_COLLAPSED_CONTROL_BOTTOM = 18;
 const TRIP_PANEL_EXIT_OFFSET = 28;
 const TRIP_PANEL_ANIMATION_DURATION_MS = 220;
+const DRIVER_CAMERA_SIDE_PADDING = 16;
+const DRIVER_CAMERA_TOP_PADDING = 16;
+const DRIVER_CAMERA_EXPANDED_PANEL_MARGIN = 20;
+const DRIVER_CAMERA_EXPANDED_PANEL_MIN_PADDING = 180;
+const DRIVER_CAMERA_COLLAPSED_PANEL_MARGIN = 20;
+const DRIVER_CAMERA_CENTERED_PADDING = {
+  paddingTop: 0,
+  paddingRight: 0,
+  paddingBottom: 0,
+  paddingLeft: 0,
+} as const;
 
 // Driver Map Screen - renders trip setup, live route guidance, and driver-visible commuter markers.
 export default function DriverMapScreen() {
@@ -282,6 +296,12 @@ export default function DriverMapScreen() {
   const [isTripSubmitting, setIsTripSubmitting] = useState(false);
   const [isTripPanelExpanded, setIsTripPanelExpanded] = useState(true);
   const [isTripPanelMounted, setIsTripPanelMounted] = useState(true);
+  const [isTripPanelCameraExpanded, setIsTripPanelCameraExpanded] = useState(true);
+  const [arrivalPromptVisible, setArrivalPromptVisible] = useState(false);
+  const [offRouteWarningVisible, setOffRouteWarningVisible] = useState(false);
+  const [inMotionInteractionTimestamps, setInMotionInteractionTimestamps] = useState<number[]>([]);
+  const [inMotionSafetyWarningLastShownAtMs, setInMotionSafetyWarningLastShownAtMs] = useState<number | null>(null);
+  const [inMotionSafetyWarningEvaluationTick, setInMotionSafetyWarningEvaluationTick] = useState(0);
   const [tripPanelHeight, setTripPanelHeight] = useState(0);
   const [hasMapLoadingError, setHasMapLoadingError] = useState(false);
   const [isMapboxReady, setIsMapboxReady] = useState(false);
@@ -296,6 +316,7 @@ export default function DriverMapScreen() {
   const startFocusActiveRef = useRef(false);
   const lastAutoCenteredVehicleCoordinateRef = useRef<string | null>(null);
   const latestActiveVehicleCoordinateRef = useRef<RouteCoordinate | null>(null);
+  const arrivalPromptDismissedTripIdRef = useRef<string | null>(null);
   const autoRecenterPausedRef = useRef(false);
   const autoRecenterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
@@ -501,11 +522,10 @@ export default function DriverMapScreen() {
     ? formatSignalLabel(activeTrip.locationStatus)
     : 'Idle';
   const activeSignalText = activeTrip
-    ? buildSignalSupportText(activeTrip.locationStatus, activeTrip.lastLocationRecordedAt)
+    ? activeTrip.locationStatus === 'live'
+      ? ''
+      : buildSignalSupportText(activeTrip.locationStatus)
     : '';
-  const activeGuidanceWarning = activeTrip
-    ? driverGuidance?.warningMessage ?? null
-    : null;
   const activeCommuterVisibilityText = activeTrip && snapshot.driverVisibleCommuters.length === 0
     ? 'No waiting commuters match this route segment right now.'
     : null;
@@ -517,6 +537,36 @@ export default function DriverMapScreen() {
     ),
     [activeTrip?.locationStatus, activeVehicle?.speedKph, driverGuidance],
   );
+  const arrivalState = useMemo(
+    () => resolveDriverArrivalState(
+      driverGuidance,
+      activeTrip?.locationStatus ?? 'idle',
+    ),
+    [activeTrip?.locationStatus, driverGuidance],
+  );
+  const offRouteState = useMemo(
+    () => resolveDriverOffRouteState(
+      driverGuidance,
+      activeTrip?.locationStatus ?? 'idle',
+    ),
+    [activeTrip?.locationStatus, driverGuidance],
+  );
+  const inMotionSafetyWarningState = useMemo(
+    () => resolveDriverInMotionSafetyWarningState({
+      locationStatus: activeTrip?.locationStatus ?? 'idle',
+      speedKph: activeVehicle?.speedKph ?? null,
+      interactionTimestamps: inMotionInteractionTimestamps,
+      lastWarningAtMs: inMotionSafetyWarningLastShownAtMs,
+      now: Date.now(),
+    }),
+    [
+      activeTrip?.locationStatus,
+      activeVehicle?.speedKph,
+      inMotionInteractionTimestamps,
+      inMotionSafetyWarningEvaluationTick,
+      inMotionSafetyWarningLastShownAtMs,
+    ],
+  );
   const activeSpeedMetric = formatSpeedMetric(
     activeVehicle?.speedKph ?? null,
     activeTrip?.locationStatus ?? 'idle',
@@ -527,8 +577,146 @@ export default function DriverMapScreen() {
     activeTrip?.locationStatus ?? 'idle',
   );
   const activeNextTerminalLabel = formatNextTerminalMetricLabel(activeDestinationLabel);
+  const arrivalPromptMessage = arrivalState.isArrivalReady
+    ? `You appear to be near ${activeDestinationLabel ?? 'your destination'}. Confirm when you are ready to end this trip${arrivalState.remainingDistanceMeters !== null ? ` (${Math.max(1, Math.round(arrivalState.remainingDistanceMeters))} m remaining).` : '.'}`
+    : null;
+  const activeGuidanceWarning = activeTrip
+    ? resolveDriverActiveWarningMessage(
+      inMotionSafetyWarningState.warningMessage,
+      driverGuidance?.warningMessage ?? null,
+      offRouteState,
+      offRouteWarningVisible,
+    )
+    : null;
+  const isInMotionSafetyWarningVisible = Boolean(inMotionSafetyWarningState.warningMessage);
   const activeTripId = activeTrip?.id ?? null;
   const activeTripRouteId = activeTrip?.routeId ?? null;
+  const activeTripCameraPadding = useMemo(
+    () => (
+      activeTrip
+        ? {
+            paddingTop: DRIVER_CAMERA_TOP_PADDING,
+            paddingRight: DRIVER_CAMERA_SIDE_PADDING,
+            paddingBottom: isTripPanelCameraExpanded
+              ? Math.max(
+                  tripPanelHeight + DRIVER_CAMERA_EXPANDED_PANEL_MARGIN,
+                  DRIVER_CAMERA_EXPANDED_PANEL_MIN_PADDING,
+                )
+              : (
+                  TRIP_PANEL_COLLAPSED_CONTROL_HEIGHT
+                  + TRIP_PANEL_COLLAPSED_CONTROL_BOTTOM
+                  + DRIVER_CAMERA_COLLAPSED_PANEL_MARGIN
+                ),
+            paddingLeft: DRIVER_CAMERA_SIDE_PADDING,
+          }
+        : undefined
+    ),
+    [activeTrip, isTripPanelCameraExpanded, tripPanelHeight],
+  );
+  const activeTripCameraBottomPadding = activeTripCameraPadding?.paddingBottom ?? 0;
+
+  useEffect(() => {
+    if (!activeTripId) {
+      setArrivalPromptVisible(false);
+      arrivalPromptDismissedTripIdRef.current = null;
+      return;
+    }
+
+    if (!arrivalState.isArrivalReady) {
+      setArrivalPromptVisible(false);
+
+      if (
+        arrivalPromptDismissedTripIdRef.current === activeTripId
+        && arrivalState.isPromptRearmReady
+      ) {
+        arrivalPromptDismissedTripIdRef.current = null;
+      }
+      return;
+    }
+
+    if (arrivalPromptDismissedTripIdRef.current === activeTripId || isTripSubmitting) {
+      return;
+    }
+
+    setArrivalPromptVisible(true);
+
+    if (!isTripPanelMounted) {
+      expandTripPanel();
+    }
+  }, [
+    activeTripId,
+    arrivalState.isArrivalReady,
+    arrivalState.isPromptRearmReady,
+    isTripPanelMounted,
+    isTripSubmitting,
+  ]);
+
+  useEffect(() => {
+    if (
+      !activeTripId
+      || activeTrip?.locationStatus !== 'live'
+      || !offRouteState.warningMessage
+    ) {
+      setOffRouteWarningVisible(false);
+      return;
+    }
+
+    if (offRouteState.isWarningVisible) {
+      setOffRouteWarningVisible(true);
+    }
+  }, [
+    activeTrip?.locationStatus,
+    activeTripId,
+    offRouteState.isWarningVisible,
+    offRouteState.warningMessage,
+  ]);
+
+  useEffect(() => {
+    if (!inMotionSafetyWarningState.shouldTriggerWarning) {
+      return;
+    }
+
+    setInMotionSafetyWarningLastShownAtMs(Date.now());
+  }, [inMotionSafetyWarningState.shouldTriggerWarning]);
+
+  useEffect(() => {
+    const activeVehicleSpeedKph = activeVehicle?.speedKph ?? null;
+
+    if (
+      !activeTripId
+      || activeTrip?.locationStatus !== 'live'
+      || activeVehicleSpeedKph === null
+      || !Number.isFinite(activeVehicleSpeedKph)
+      || activeVehicleSpeedKph < DRIVER_IN_MOTION_WARNING_MIN_SPEED_KPH
+    ) {
+      setInMotionInteractionTimestamps((current) => (current.length === 0 ? current : []));
+      setInMotionSafetyWarningLastShownAtMs((current) => (current === null ? current : null));
+    }
+  }, [activeTrip?.locationStatus, activeTripId, activeVehicle?.speedKph]);
+
+  useEffect(() => {
+    if (
+      !inMotionSafetyWarningState.isCooldownActive
+      || inMotionSafetyWarningLastShownAtMs === null
+    ) {
+      return;
+    }
+
+    const remainingMs = Math.max(
+      0,
+      DRIVER_IN_MOTION_WARNING_COOLDOWN_MS - (Date.now() - inMotionSafetyWarningLastShownAtMs),
+    );
+    const timeout = setTimeout(() => {
+      setInMotionSafetyWarningEvaluationTick((current) => current + 1);
+    }, remainingMs + 50);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [
+    inMotionSafetyWarningLastShownAtMs,
+    inMotionSafetyWarningState.isCooldownActive,
+  ]);
 
   // Trip Start Focus Cleanup - cancels the delayed transition out of initial trip camera focus.
   function clearTripStartFocusTimeout() {
@@ -552,18 +740,34 @@ export default function DriverMapScreen() {
     }, CAMERA_NOTICE_DURATION_MS);
   }
 
-  // Driver Camera Focus - centers the map on the active vehicle coordinate.
-  function focusCameraOnDriver(coordinate: RouteCoordinate) {
+  // Driver Camera Focus - centers the map on the active vehicle coordinate using overlay-aware camera padding.
+  function focusCameraOnDriver(
+    coordinate: RouteCoordinate,
+    options?: {
+      animationDuration?: number;
+      animationMode?: 'flyTo' | 'easeTo' | 'moveTo' | 'linearTo';
+      padding?: {
+        paddingTop: number;
+        paddingRight: number;
+        paddingBottom: number;
+        paddingLeft: number;
+      };
+      zoomLevel?: number;
+    },
+  ) {
     if (!cameraRef.current?.setCamera) {
-      return;
+      return false;
     }
 
     cameraRef.current.setCamera({
       centerCoordinate: coordinate,
-      zoomLevel: START_TRIP_FOCUS_ZOOM,
-      animationMode: 'flyTo',
-      animationDuration: START_TRIP_FOCUS_DURATION_MS,
+      padding: options?.padding ?? activeTripCameraPadding,
+      ...(options?.zoomLevel !== undefined ? { zoomLevel: options.zoomLevel } : {}),
+      animationMode: options?.animationMode ?? 'flyTo',
+      animationDuration: options?.animationDuration ?? START_TRIP_FOCUS_DURATION_MS,
     });
+
+    return true;
   }
 
   // Vehicle Coordinate Key - deduplicates automatic camera recenter updates per trip.
@@ -595,7 +799,10 @@ export default function DriverMapScreen() {
           activeTripId,
           latestActiveVehicleCoordinateRef.current,
         );
-        focusCameraOnDriver(latestActiveVehicleCoordinateRef.current);
+        focusCameraOnDriver(latestActiveVehicleCoordinateRef.current, {
+          padding: DRIVER_CAMERA_CENTERED_PADDING,
+          zoomLevel: START_TRIP_FOCUS_ZOOM,
+        });
       }
 
       autoRecenterTimeoutRef.current = null;
@@ -604,6 +811,7 @@ export default function DriverMapScreen() {
 
   // Map Touch Start - pauses automatic following while the driver inspects the map.
   function handleMapTouchStart() {
+    recordActiveTripInteraction();
     autoRecenterPausedRef.current = true;
     clearAutoRecenterTimeout();
   }
@@ -613,12 +821,24 @@ export default function DriverMapScreen() {
     resumeAutoRecenterAfterIdle();
   }
 
+  // Active Trip Interaction Recorder - tracks deliberate live-trip taps for the non-blocking in-motion safety warning.
+  function recordActiveTripInteraction() {
+    if (!activeTripId) {
+      return;
+    }
+
+    setInMotionInteractionTimestamps((current) => (
+      appendDriverInMotionInteractionTimestamp(current)
+    ));
+  }
+
   // Trip Panel Collapse - animates the active trip details offscreen.
   function collapseTripPanel() {
     setIsTripPanelExpanded(false);
 
     if (tripPanelHeight <= 0) {
       setIsTripPanelMounted(false);
+      setIsTripPanelCameraExpanded(false);
       tripPanelTranslateY.setValue(0);
       return;
     }
@@ -633,6 +853,7 @@ export default function DriverMapScreen() {
       }
 
       setIsTripPanelMounted(false);
+      setIsTripPanelCameraExpanded(false);
       tripPanelTranslateY.setValue(0);
     });
   }
@@ -641,6 +862,7 @@ export default function DriverMapScreen() {
   function expandTripPanel() {
     setIsTripPanelMounted(true);
     setIsTripPanelExpanded(true);
+    setIsTripPanelCameraExpanded(true);
 
     if (tripPanelHeight <= 0) {
       tripPanelTranslateY.setValue(0);
@@ -658,7 +880,7 @@ export default function DriverMapScreen() {
   }
 
   useEffect(() => {
-    if (!activeTrip || !activeVehicle) {
+    if (!isMapboxReady || !activeTrip || !activeVehicle) {
       startFocusTripIdRef.current = null;
       startFocusActiveRef.current = false;
       clearTripStartFocusTimeout();
@@ -669,9 +891,17 @@ export default function DriverMapScreen() {
       return;
     }
 
+    const didCenter = focusCameraOnDriver(activeVehicle.coordinate, {
+      padding: DRIVER_CAMERA_CENTERED_PADDING,
+      zoomLevel: START_TRIP_FOCUS_ZOOM,
+    });
+
+    if (!didCenter) {
+      return;
+    }
+
     startFocusTripIdRef.current = activeTrip.id;
     startFocusActiveRef.current = true;
-    focusCameraOnDriver(activeVehicle.coordinate);
     showCameraNotice('Trip started. Centered on your live location.');
 
     clearTripStartFocusTimeout();
@@ -679,12 +909,13 @@ export default function DriverMapScreen() {
       startFocusActiveRef.current = false;
       tripStartFocusTimeoutRef.current = null;
     }, START_TRIP_ROUTE_OVERVIEW_DELAY_MS);
-  }, [activeTrip, activeVehicle, routeRenderModel]);
+  }, [activeTrip, activeVehicle, isMapboxReady, routeRenderModel]);
 
   useEffect(() => {
     if (!activeTrip) {
       setIsTripPanelExpanded(true);
       setIsTripPanelMounted(true);
+      setIsTripPanelCameraExpanded(true);
       tripPanelTranslateY.setValue(0);
       return;
     }
@@ -710,8 +941,27 @@ export default function DriverMapScreen() {
     }
 
     lastAutoCenteredVehicleCoordinateRef.current = coordinateKey;
-    focusCameraOnDriver(activeVehicle.coordinate);
+    focusCameraOnDriver(activeVehicle.coordinate, {
+      padding: DRIVER_CAMERA_CENTERED_PADDING,
+      zoomLevel: START_TRIP_FOCUS_ZOOM,
+    });
   }, [activeTrip, activeVehicle, isMapboxReady]);
+
+  useEffect(() => {
+    if (!isMapboxReady || !activeTrip || !activeVehicle) {
+      return;
+    }
+
+    if (startFocusActiveRef.current) {
+      return;
+    }
+
+    focusCameraOnDriver(activeVehicle.coordinate, {
+      animationMode: 'easeTo',
+      animationDuration: TRIP_PANEL_ANIMATION_DURATION_MS,
+      padding: activeTripCameraPadding,
+    });
+  }, [activeTrip, activeTripCameraBottomPadding, isMapboxReady]);
 
   useEffect(() => {
     return () => {
@@ -762,7 +1012,7 @@ export default function DriverMapScreen() {
             });
           } catch (error) {
             if (!cancelled) {
-              setActionError(error instanceof Error ? error.message : 'Unable to publish your live location right now.');
+              setActionError(error instanceof Error ? error.message : 'We could not update your live location.');
             }
           } finally {
             publishInFlightRef.current = false;
@@ -777,7 +1027,7 @@ export default function DriverMapScreen() {
         locationWatchRef.current = subscription;
       } catch (error) {
         if (!cancelled) {
-          setActionError(error instanceof Error ? error.message : 'Location permission is required for live trip tracking.');
+          setActionError(error instanceof Error ? error.message : 'Allow location access to use live trip tracking.');
         }
       }
     }
@@ -826,7 +1076,7 @@ export default function DriverMapScreen() {
     setActionHint(null);
 
     if (!isSelectableTerminalId(terminalId)) {
-      setActionError('Only supported terminals can be selected right now.');
+      setActionError('This terminal cannot be used right now.');
       return;
     }
 
@@ -863,7 +1113,7 @@ export default function DriverMapScreen() {
 
       closeTerminalPicker();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Unable to update the trip setup.');
+      setActionError(error instanceof Error ? error.message : 'We could not update your trip setup.');
     }
   }
 
@@ -881,7 +1131,7 @@ export default function DriverMapScreen() {
       });
       setPickerTarget(target);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Unable to clear the terminal selection.');
+      setActionError(error instanceof Error ? error.message : 'We could not clear your selection.');
     }
   }
 
@@ -895,14 +1145,14 @@ export default function DriverMapScreen() {
       const currentLocation = await getDriverCurrentLocation();
       await startTrip(currentLocation);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Unable to start trip right now.');
+      setActionError(error instanceof Error ? error.message : 'We could not start your trip.');
     } finally {
       setIsTripSubmitting(false);
     }
   }
 
   // Trip End Handler - stops the active trip and clears driver live location state.
-  async function handleEndTrip() {
+  async function handleEndTrip(postEndHintMode: 'default' | 'return' = 'default') {
     setActionError(null);
     setIsTripSubmitting(true);
     setCameraNotice(null);
@@ -914,20 +1164,43 @@ export default function DriverMapScreen() {
     tripPanelTranslateY.setValue(0);
 
     try {
-      if (locationWatchRef.current) {
-        locationWatchRef.current.remove();
-        locationWatchRef.current = null;
-      }
       const nextSnapshot = await endTrip();
       setActionHint(
         nextSnapshot.driverSelection.resolvedRouteLabel
-          ? `Return route ready: ${nextSnapshot.driverSelection.resolvedRouteLabel}`
+          ? (
+            postEndHintMode === 'return'
+              ? `Return trip prepared: ${nextSnapshot.driverSelection.resolvedRouteLabel}. Press LARGA when ready.`
+              : `Return route ready: ${nextSnapshot.driverSelection.resolvedRouteLabel}`
+          )
           : 'Trip ended. Pick your next route when ready.',
       );
+      return true;
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Unable to end trip right now.');
+      setActionError(error instanceof Error ? error.message : 'We could not end your trip.');
+      return false;
     } finally {
       setIsTripSubmitting(false);
+    }
+  }
+
+  function handleDismissArrivalPrompt() {
+    if (!activeTripId) {
+      setArrivalPromptVisible(false);
+      return;
+    }
+
+    arrivalPromptDismissedTripIdRef.current = activeTripId;
+    setArrivalPromptVisible(false);
+    setActionHint('Arrival prompt dismissed. Use STOP when you are ready.');
+  }
+
+  async function handleArrivalPromptAction(action: 'end' | 'return') {
+    setArrivalPromptVisible(false);
+    const didEndTrip = await handleEndTrip(action === 'return' ? 'return' : 'default');
+
+    if (!didEndTrip && activeTripId) {
+      arrivalPromptDismissedTripIdRef.current = null;
+      setArrivalPromptVisible(true);
     }
   }
 
@@ -1314,7 +1587,10 @@ export default function DriverMapScreen() {
               </Text>
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => router.push('/notifications')}
+                onPress={() => {
+                  recordActiveTripInteraction();
+                  router.push('/notifications');
+                }}
               >
                 <Ionicons name="notifications-outline" size={20} color="#ffffff" />
                 {unreadCount > 0 ? <View style={driverOverlayStyles.notificationDotWhite} /> : null}
@@ -1413,7 +1689,10 @@ export default function DriverMapScreen() {
             >
               <Pressable
                 style={driverOverlayStyles.panelHandleButton}
-                onPress={collapseTripPanel}
+                onPress={() => {
+                  recordActiveTripInteraction();
+                  collapseTripPanel();
+                }}
               >
                 <View style={driverOverlayStyles.panelHandle} />
                 <View style={driverOverlayStyles.panelHandleRow}>
@@ -1464,25 +1743,29 @@ export default function DriverMapScreen() {
                 </View>
               </View>
 
-              <View
-                style={[
-                  driverOverlayStyles.signalNotice,
-                  snapshot.activeTrip.locationStatus === 'live'
-                    ? driverOverlayStyles.signalNoticeLive
-                    : driverOverlayStyles.signalNoticeWarning,
-                ]}
-              >
-                <Ionicons
-                  name={snapshot.activeTrip.locationStatus === 'live' ? 'checkmark-circle' : 'alert-circle'}
-                  size={16}
-                  color={snapshot.activeTrip.locationStatus === 'live' ? '#0f766e' : '#b45309'}
-                />
-                <Text style={driverOverlayStyles.signalNoticeText}>{activeSignalText}</Text>
-              </View>
+              {activeSignalText ? (
+                <View
+                  style={[
+                    driverOverlayStyles.signalNotice,
+                    driverOverlayStyles.signalNoticeWarning,
+                  ]}
+                >
+                  <Ionicons
+                    name="alert-circle"
+                    size={16}
+                    color="#b45309"
+                  />
+                  <Text style={driverOverlayStyles.signalNoticeText}>{activeSignalText}</Text>
+                </View>
+              ) : null}
 
               {activeGuidanceWarning ? (
                 <View style={driverOverlayStyles.guidanceNotice}>
-                  <Ionicons name="navigate-circle" size={16} color="#0f766e" />
+                  <Ionicons
+                    name={isInMotionSafetyWarningVisible ? 'warning-outline' : 'navigate-circle'}
+                    size={16}
+                    color={isInMotionSafetyWarningVisible ? '#b45309' : '#0f766e'}
+                  />
                   <Text style={driverOverlayStyles.guidanceNoticeText}>{activeGuidanceWarning}</Text>
                 </View>
               ) : null}
@@ -1494,13 +1777,61 @@ export default function DriverMapScreen() {
                 </View>
               ) : null}
 
+              {arrivalPromptVisible && arrivalPromptMessage ? (
+                <View style={driverOverlayStyles.arrivalPromptCard}>
+                  <View style={driverOverlayStyles.arrivalPromptHeader}>
+                    <Ionicons name="flag" size={18} color="#b45309" />
+                    <Text style={driverOverlayStyles.arrivalPromptTitle}>Arrival detected</Text>
+                  </View>
+                  <Text style={driverOverlayStyles.arrivalPromptText}>{arrivalPromptMessage}</Text>
+                  <View style={driverOverlayStyles.arrivalPromptButtonRow}>
+                    <TouchableOpacity
+                      style={driverOverlayStyles.arrivalPromptSecondaryButton}
+                      activeOpacity={0.85}
+                      disabled={isTripSubmitting}
+                      onPress={() => {
+                        recordActiveTripInteraction();
+                        handleDismissArrivalPrompt();
+                      }}
+                    >
+                      <Text style={driverOverlayStyles.arrivalPromptSecondaryButtonText}>Not Yet</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={driverOverlayStyles.arrivalPromptSecondaryButton}
+                      activeOpacity={0.85}
+                      disabled={isTripSubmitting}
+                      onPress={() => {
+                        recordActiveTripInteraction();
+                        void handleArrivalPromptAction('end');
+                      }}
+                    >
+                      <Text style={driverOverlayStyles.arrivalPromptSecondaryButtonText}>End Trip</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={driverOverlayStyles.arrivalPromptPrimaryButton}
+                      activeOpacity={0.85}
+                      disabled={isTripSubmitting}
+                      onPress={() => {
+                        recordActiveTripInteraction();
+                        void handleArrivalPromptAction('return');
+                      }}
+                    >
+                      <Text style={driverOverlayStyles.arrivalPromptPrimaryButtonText}>Prepare Return</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : null}
+
               {actionError ? <Text style={driverOverlayStyles.errorText}>{actionError}</Text> : null}
 
               <TouchableOpacity
                 style={driverOverlayStyles.stopButton}
                 activeOpacity={0.85}
                 disabled={isTripSubmitting}
-                onPress={handleEndTrip}
+                onPress={() => {
+                  recordActiveTripInteraction();
+                  void handleEndTrip();
+                }}
               >
                 {isTripSubmitting ? (
                   <ActivityIndicator color="#fff" />
@@ -1512,7 +1843,10 @@ export default function DriverMapScreen() {
             ) : (
               <Pressable
                 style={driverOverlayStyles.collapsedTripPanelControl}
-                onPress={expandTripPanel}
+                onPress={() => {
+                  recordActiveTripInteraction();
+                  expandTripPanel();
+                }}
               >
                 <View style={driverOverlayStyles.panelHandle} />
                 <View style={driverOverlayStyles.panelHandleRow}>
@@ -1985,10 +2319,10 @@ const driverOverlayStyles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: '#ffffff',
-    paddingTop: 12,
+    paddingTop: 10,
     paddingHorizontal: 16,
-    paddingBottom: 20,
-    gap: 12,
+    paddingBottom: 14,
+    gap: 8,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
@@ -1998,7 +2332,7 @@ const driverOverlayStyles = StyleSheet.create({
   panelHandleButton: {
     alignItems: 'center',
     gap: 6,
-    paddingBottom: 4,
+    paddingBottom: 2,
   },
   panelHandle: {
     width: 40,
@@ -2014,7 +2348,7 @@ const driverOverlayStyles = StyleSheet.create({
   },
   panelHandleLabel: {
     color: '#94a3b8',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.2,
   },
@@ -2022,17 +2356,17 @@ const driverOverlayStyles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
+    rowGap: 8,
   },
   tripMetricCard: {
     width: '48%',
-    minHeight: 104,
-    borderRadius: 20,
+    minHeight: 92,
+    borderRadius: 18,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#dcfce7',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     justifyContent: 'space-between',
     shadowColor: '#16a34a',
     shadowOffset: { width: 0, height: 3 },
@@ -2043,25 +2377,25 @@ const driverOverlayStyles = StyleSheet.create({
   tripMetricHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   tripMetricLabel: {
     color: '#166534',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
   tripMetricValue: {
     color: '#0f172a',
-    fontSize: 19,
-    lineHeight: 24,
+    fontSize: 17,
+    lineHeight: 21,
     fontWeight: '800',
-    marginTop: 12,
+    marginTop: 8,
   },
   signalNotice: {
     borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
@@ -2075,13 +2409,13 @@ const driverOverlayStyles = StyleSheet.create({
   signalNoticeText: {
     flex: 1,
     color: '#475569',
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
   },
   guidanceNotice: {
     borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
@@ -2090,13 +2424,73 @@ const driverOverlayStyles = StyleSheet.create({
   guidanceNoticeText: {
     flex: 1,
     color: '#0f766e',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  arrivalPromptCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    backgroundColor: '#fffbeb',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 10,
+  },
+  arrivalPromptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  arrivalPromptTitle: {
+    color: '#92400e',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  arrivalPromptText: {
+    color: '#78350f',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  arrivalPromptButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  arrivalPromptSecondaryButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  arrivalPromptSecondaryButtonText: {
+    color: '#92400e',
     fontSize: 12,
-    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  arrivalPromptPrimaryButton: {
+    flex: 1.15,
+    minHeight: 42,
+    borderRadius: 12,
+    backgroundColor: '#16a34a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  arrivalPromptPrimaryButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   stopButton: {
     backgroundColor: '#ef4444',
     borderRadius: 18,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#ef4444',

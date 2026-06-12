@@ -22,11 +22,16 @@ export interface VehicleMarker {
   routeId: string;
   routeLabel: string;
   recordedAt: string;
-  fare: string;
   speed: string;
   speedKph: number | null;
   distance: string;
   eta: string;
+}
+
+export interface CommuterRideSelectionState {
+  selectedVehicleId: string | null;
+  fareOriginLocationId: string | null;
+  fareDestinationLocationId: string | null;
 }
 
 export interface ActiveTripState {
@@ -86,6 +91,7 @@ export interface LiveDataSnapshot {
   commuterVisibleVehicles: CommuterVisibleVehicle[];
   driverVisibleCommuters: DriverVisibleCommuter[];
   vehicles: VehicleMarker[];
+  commuterRideSelection: CommuterRideSelectionState;
   driverSelection: DriverSelectionState;
   notificationsByRole: {
     commuter: NotificationItem[];
@@ -97,6 +103,9 @@ export interface LiveDataService {
   getSnapshot(): Promise<LiveDataSnapshot>;
   subscribe(listener: (snapshot: LiveDataSnapshot) => void): () => void;
   selectDriverTerminals(input: DriverTerminalSelectionInput): Promise<LiveDataSnapshot>;
+  selectCommuterVehicle(vehicleId: string | null): Promise<LiveDataSnapshot>;
+  setCommuterFareOrigin(locationId: string | null): Promise<LiveDataSnapshot>;
+  setCommuterFareDestination(locationId: string | null): Promise<LiveDataSnapshot>;
   startTrip(input?: StartTripInput): Promise<LiveDataSnapshot>;
   endTrip(): Promise<LiveDataSnapshot>;
   publishDriverLocation(input: PublishDriverLocationInput): Promise<LiveDataSnapshot>;

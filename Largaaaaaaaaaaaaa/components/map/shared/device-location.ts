@@ -34,7 +34,7 @@ async function getLocationModule() {
 
   if (!nativeLocationModule) {
     throw new Error(
-      'The current app build does not include live GPS support yet. Rebuild the app after installing the location module.',
+      'This version of the app cannot use live location yet. Please update the app.',
     );
   }
 
@@ -43,7 +43,7 @@ async function getLocationModule() {
     return cachedLocationModule;
   } catch {
     throw new Error(
-      'The current app build does not include live GPS support yet. Rebuild the app after installing the location module.',
+      'This version of the app cannot use live location yet. Please update the app.',
     );
   }
 }
@@ -66,7 +66,7 @@ export async function requestForegroundLocationPermission() {
   const permission = await Location.requestForegroundPermissionsAsync();
 
   if (permission.status !== 'granted') {
-    throw new Error('Location permission is required before sharing your live map position.');
+    throw new Error('Allow location access to use the live map.');
   }
 }
 

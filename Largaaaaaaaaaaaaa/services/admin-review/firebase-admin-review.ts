@@ -107,13 +107,13 @@ export async function reviewDriverApplication(input: ReviewDriverApplicationInpu
     const applicationSnapshot = await transaction.get(applicationRef);
 
     if (!applicationSnapshot.exists()) {
-      throw new Error('Driver application not found.');
+      throw new Error('We cannot find this driver application.');
     }
 
     const applicationData = applicationSnapshot.data() as FirestoreDriverApplicationRecord;
 
     if (typeof applicationData.uid !== 'string' || applicationData.requestedRole !== 'driver') {
-      throw new Error('Driver application is malformed.');
+      throw new Error('We could not read this driver application.');
     }
 
     if (!isDriverApplicationStatus(applicationData.status) || applicationData.status !== 'pending') {

@@ -14,7 +14,11 @@ import { ROUTE_FIXTURES, TERMINAL_FIXTURES } from '@/services/fixtures/routes';
 
 interface LiveDataContextValue {
   snapshot: LiveDataSnapshot;
+  isHydrated: boolean;
   selectDriverTerminals: (input: DriverTerminalSelectionInput) => Promise<LiveDataSnapshot>;
+  selectCommuterVehicle: (vehicleId: string | null) => Promise<LiveDataSnapshot>;
+  setCommuterFareOrigin: (locationId: string | null) => Promise<LiveDataSnapshot>;
+  setCommuterFareDestination: (locationId: string | null) => Promise<LiveDataSnapshot>;
   startTrip: (input?: StartTripInput) => Promise<LiveDataSnapshot>;
   endTrip: () => Promise<LiveDataSnapshot>;
   publishDriverLocation: (input: PublishDriverLocationInput) => Promise<LiveDataSnapshot>;
@@ -32,6 +36,11 @@ const fallbackSnapshot: LiveDataSnapshot = {
   commuterVisibleVehicles: [],
   driverVisibleCommuters: [],
   vehicles: [],
+  commuterRideSelection: {
+    selectedVehicleId: null,
+    fareOriginLocationId: null,
+    fareDestinationLocationId: null,
+  },
   driverSelection: createEmptyDriverSelection(),
   notificationsByRole: {
     commuter: [],
@@ -45,6 +54,7 @@ const LiveDataContext = createContext<LiveDataContextValue | undefined>(undefine
 export function LiveDataProvider({ children }: { children: ReactNode }) {
   // Live Snapshot State - stores the current live-data view used by the app screens.
   const [snapshot, setSnapshot] = useState<LiveDataSnapshot>(fallbackSnapshot);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   // Live Data Sync - hydrates the initial snapshot and subscribes to future updates.
   useEffect(() => {
@@ -53,12 +63,14 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     liveDataService.getSnapshot().then((nextSnapshot) => {
       if (mounted) {
         setSnapshot(nextSnapshot);
+        setIsHydrated(true);
       }
     });
 
     const unsubscribe = liveDataService.subscribe((nextSnapshot) => {
       if (mounted) {
         setSnapshot(nextSnapshot);
+        setIsHydrated(true);
       }
     });
 
@@ -72,7 +84,11 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
   const value = useMemo<LiveDataContextValue>(
     () => ({
       snapshot,
+      isHydrated,
       selectDriverTerminals: liveDataService.selectDriverTerminals,
+      selectCommuterVehicle: liveDataService.selectCommuterVehicle,
+      setCommuterFareOrigin: liveDataService.setCommuterFareOrigin,
+      setCommuterFareDestination: liveDataService.setCommuterFareDestination,
       startTrip: liveDataService.startTrip,
       endTrip: liveDataService.endTrip,
       publishDriverLocation: liveDataService.publishDriverLocation,
@@ -80,7 +96,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
       clearCommuterPresence: liveDataService.clearCommuterPresence,
       reset: liveDataService.reset,
     }),
-    [snapshot],
+    [isHydrated, snapshot],
   );
 
   return (

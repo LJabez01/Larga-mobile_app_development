@@ -5,7 +5,7 @@ import { deleteApp as deleteAdminApp, getApp, getApps, initializeApp } from 'fir
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { addDoc, collection, deleteDoc, doc, getDocs, getFirestore, setDoc, connectFirestoreEmulator } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, query, setDoc, where, connectFirestoreEmulator } from 'firebase/firestore';
 import { deleteApp as deleteClientApp, getApps as getClientApps, initializeApp as initializeClientApp } from 'firebase/app';
 
 import { serializeRouteCoordinates } from '@/lib/domain/transport';
@@ -143,6 +143,7 @@ async function main() {
     await seedCatalog();
 
     const driver = await createSignedInUser('driver@larga.test', 'password123', ['driver']);
+    const otherDriver = await createSignedInUser('driver-2@larga.test', 'password123', ['driver']);
     const commuter = await createSignedInUser('commuter@larga.test', 'password123', ['commuter']);
     const admin = await createSignedInUser('admin@larga.test', 'password123', ['admin']);
     const pendingDriver = await createSignedInUser('pending-driver@larga.test', 'password123', [], ['driver']);
@@ -290,6 +291,8 @@ async function main() {
       routeId: 'sta-maria-bayan-halang',
       originTerminalId: 'sta-maria-bayan',
       destinationTerminalId: 'halang-terminal',
+      originLocationId: 'new-santa-maria-jeepney-terminal',
+      destinationLocationId: 'halang-and-santa-maria-to-pandi-angat-baliuag-jeepney-terminal',
       routeProgressSegmentIndex: null,
       status: 'active',
       startedAt: '2026-05-12T01:00:00.000Z',
@@ -298,6 +301,28 @@ async function main() {
 
     await expectAllowed(
       setDoc(doc(driver.db, 'activeTrips', driver.uid), tripPayload),
+    );
+
+    await expectAllowed(
+      setDoc(doc(otherDriver.db, 'activeTrips', otherDriver.uid), {
+        ...tripPayload,
+        driverId: otherDriver.uid,
+        routeId: 'sta-maria-bayan-norzagaray',
+        destinationTerminalId: 'norzagaray-terminal',
+        destinationLocationId: 'norzagaray-terminal',
+      }),
+    );
+
+    await expectAllowed(
+      getDoc(doc(driver.db, 'activeTrips', driver.uid)),
+    );
+
+    await expectDenied(
+      getDoc(doc(commuter.db, 'activeTrips', driver.uid)),
+    );
+
+    await expectDenied(
+      getDocs(collection(commuter.db, 'activeTrips')),
     );
 
     await expectDenied(
@@ -345,6 +370,15 @@ async function main() {
       setDoc(doc(driver.db, 'vehicleLocations', driver.uid), driverLocationPayload),
     );
 
+    await expectAllowed(
+      setDoc(doc(otherDriver.db, 'vehicleLocations', otherDriver.uid), {
+        ...driverLocationPayload,
+        driverId: otherDriver.uid,
+        tripId: otherDriver.uid,
+        routeId: 'sta-maria-bayan-norzagaray',
+      }),
+    );
+
     await expectDenied(
       setDoc(doc(driver.db, 'vehicleLocations', `${driver.uid}-other`), driverLocationPayload),
     );
@@ -383,6 +417,24 @@ async function main() {
         doc(commuter.db, 'routeCommuterPresence', 'sta-maria-bayan-halang', 'commuters', commuter.uid),
         commuterPresencePayload,
       ),
+    );
+
+    await expectAllowed(
+      getDocs(query(
+        collection(commuter.db, 'vehicleLocations'),
+        where('routeId', 'in', ['sta-maria-bayan-halang']),
+      )),
+    );
+
+    await expectDenied(
+      getDocs(collection(commuter.db, 'vehicleLocations')),
+    );
+
+    await expectDenied(
+      getDocs(query(
+        collection(commuter.db, 'vehicleLocations'),
+        where('routeId', 'in', ['sta-maria-bayan-norzagaray']),
+      )),
     );
 
     await expectDenied(

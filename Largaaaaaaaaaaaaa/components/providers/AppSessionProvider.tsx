@@ -12,6 +12,7 @@ interface AppSessionContextValue {
   signIn: (input: SignInInput) => Promise<AuthSnapshot>;
   register: (input: RegisterInput) => Promise<AuthSnapshot>;
   requestPasswordReset: (email: string) => Promise<void>;
+  updateProfile: (displayName: string) => Promise<AuthSnapshot>;
   signOut: () => Promise<AuthSnapshot>;
   selectRole: (role: AppRole) => void;
 }
@@ -132,6 +133,7 @@ export function AppSessionProvider({ children }: { children: ReactNode }) {
       signIn: authService.signIn,
       register: authService.register,
       requestPasswordReset: (email) => authService.requestPasswordReset({ email }),
+      updateProfile: (displayName) => authService.updateProfile({ displayName }),
       signOut: authService.signOut,
       selectRole: (role) => {
         if (!rawSession?.approvedRoles.includes(role)) {

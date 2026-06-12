@@ -2,10 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  appendDriverInMotionInteractionTimestamp,
   buildDriverTripMetrics,
+  resolveDriverArrivalState,
+  resolveDriverActiveWarningMessage,
+  resolveDriverGuidanceWarningMessage,
+  resolveDriverInMotionSafetyWarningState,
+  resolveDriverOffRouteState,
   buildRouteGeometrySignature,
   buildDriverGuidancePathPlan,
   buildGuidanceWaypointPath,
+  buildLiveDriverGuidanceState,
   mergeRouteCoordinateSegments,
   buildStoredRouteFallbackGuidanceState,
   buildResponsiveRouteCoordinates,
@@ -419,6 +426,350 @@ test('buildDriverTripMetrics suppresses ETA when the live speed is unavailable o
 
   assert.ok(tripMetrics.distanceMeters);
   assert.equal(tripMetrics.etaMinutes, null);
+});
+
+test('resolveDriverArrivalState becomes ready only when live guidance is close to the destination', () => {
+  const arrivalState = resolveDriverArrivalState(
+    buildLiveDriverGuidanceState(
+      [120.000000, 14.000000],
+      [120.000500, 14.000000],
+      [
+        [120.000000, 14.000000],
+        [120.000250, 14.000000],
+        [120.000500, 14.000000],
+      ],
+      'route-1',
+    ),
+    'live',
+  );
+
+  assert.equal(arrivalState.isArrivalReady, true);
+  assert.ok(arrivalState.directDistanceMeters);
+  assert.ok(arrivalState.remainingDistanceMeters);
+  assert.ok(arrivalState.directDistanceMeters < 90);
+  assert.ok(arrivalState.remainingDistanceMeters < 140);
+});
+
+test('resolveDriverArrivalState stays false when the trip location is stale or the route is still far away', () => {
+  const nearExitArrivalState = resolveDriverArrivalState(
+    buildLiveDriverGuidanceState(
+      [120.000000, 14.000000],
+      [120.001400, 14.000000],
+      [
+        [120.000000, 14.000000],
+        [120.000700, 14.000000],
+        [120.001400, 14.000000],
+      ],
+      'route-1',
+    ),
+    'live',
+  );
+  const farArrivalState = resolveDriverArrivalState(
+    buildLiveDriverGuidanceState(
+      [120.000000, 14.000000],
+      [120.020000, 14.000000],
+      [
+        [120.000000, 14.000000],
+        [120.010000, 14.000000],
+        [120.020000, 14.000000],
+      ],
+      'route-1',
+    ),
+    'live',
+  );
+  const staleArrivalState = resolveDriverArrivalState(
+    buildLiveDriverGuidanceState(
+      [120.000000, 14.000000],
+      [120.000500, 14.000000],
+      [
+        [120.000000, 14.000000],
+        [120.000250, 14.000000],
+        [120.000500, 14.000000],
+      ],
+      'route-1',
+    ),
+    'stale',
+  );
+
+  assert.equal(nearExitArrivalState.isArrivalReady, false);
+  assert.equal(
+    (nearExitArrivalState as { isPromptRearmReady?: boolean }).isPromptRearmReady,
+    false,
+  );
+  assert.equal(farArrivalState.isArrivalReady, false);
+  assert.ok((farArrivalState.remainingDistanceMeters ?? 0) > 140);
+  assert.equal(
+    (farArrivalState as { isPromptRearmReady?: boolean }).isPromptRearmReady,
+    true,
+  );
+  assert.equal(staleArrivalState.isArrivalReady, false);
+  assert.equal(staleArrivalState.directDistanceMeters, null);
+  assert.equal(staleArrivalState.remainingDistanceMeters, null);
+  assert.equal(
+    (staleArrivalState as { isPromptRearmReady?: boolean }).isPromptRearmReady,
+    false,
+  );
+});
+
+test('resolveDriverOffRouteState becomes visible when the live driver drifts far from the remaining corridor', () => {
+  const offRouteState = resolveDriverOffRouteState(
+    buildLiveDriverGuidanceState(
+      [120.000000, 14.001000],
+      [120.020000, 14.000000],
+      [
+        [120.000000, 14.000000],
+        [120.010000, 14.000000],
+        [120.020000, 14.000000],
+      ],
+      'route-1',
+    ),
+    'live',
+  );
+
+  assert.equal(offRouteState.isWarningVisible, true);
+  assert.equal(offRouteState.isWarningClearReady, false);
+  assert.ok((offRouteState.routeDistanceMeters ?? 0) >= 80);
+  assert.equal(
+    offRouteState.warningMessage,
+    'You seem to be off route. Rejoin the highlighted corridor when safe.',
+  );
+});
+
+test('resolveDriverOffRouteState waits for a clear rejoin before dropping the warning state', () => {
+  const nearCorridorBufferState = resolveDriverOffRouteState(
+    buildLiveDriverGuidanceState(
+      [120.000000, 14.000450],
+      [120.020000, 14.000000],
+      [
+        [120.000000, 14.000000],
+        [120.010000, 14.000000],
+        [120.020000, 14.000000],
+      ],
+      'route-1',
+    ),
+    'live',
+  );
+  const rejoinedCorridorState = resolveDriverOffRouteState(
+    buildLiveDriverGuidanceState(
+      [120.000000, 14.000100],
+      [120.020000, 14.000000],
+      [
+        [120.000000, 14.000000],
+        [120.010000, 14.000000],
+        [120.020000, 14.000000],
+      ],
+      'route-1',
+    ),
+    'live',
+  );
+  const staleState = resolveDriverOffRouteState(
+    buildLiveDriverGuidanceState(
+      [120.000000, 14.001000],
+      [120.020000, 14.000000],
+      [
+        [120.000000, 14.000000],
+        [120.010000, 14.000000],
+        [120.020000, 14.000000],
+      ],
+      'route-1',
+    ),
+    'stale',
+  );
+
+  assert.equal(nearCorridorBufferState.isWarningVisible, false);
+  assert.equal(nearCorridorBufferState.isWarningClearReady, false);
+  assert.ok((nearCorridorBufferState.routeDistanceMeters ?? 0) > 40);
+  assert.ok((nearCorridorBufferState.routeDistanceMeters ?? 0) < 80);
+  assert.equal(
+    nearCorridorBufferState.warningMessage,
+    'You seem to be off route. Rejoin the highlighted corridor when safe.',
+  );
+
+  assert.equal(rejoinedCorridorState.isWarningVisible, false);
+  assert.equal(rejoinedCorridorState.isWarningClearReady, true);
+  assert.ok((rejoinedCorridorState.routeDistanceMeters ?? 0) <= 40);
+  assert.equal(rejoinedCorridorState.warningMessage, null);
+
+  assert.equal(staleState.isWarningVisible, false);
+  assert.equal(staleState.isWarningClearReady, false);
+  assert.equal(staleState.routeDistanceMeters, null);
+  assert.equal(staleState.warningMessage, null);
+});
+
+test('resolveDriverGuidanceWarningMessage falls back to the guidance warning when a latched off-route warning is no longer valid', () => {
+  const warningMessage = resolveDriverGuidanceWarningMessage(
+    'Route guidance is unavailable right now. Retry when your connection improves.',
+    {
+      routeDistanceMeters: null,
+      isWarningVisible: false,
+      isWarningClearReady: false,
+      warningMessage: null,
+    },
+    true,
+  );
+
+  assert.equal(
+    warningMessage,
+    'Route guidance is unavailable right now. Retry when your connection improves.',
+  );
+});
+
+test('resolveDriverGuidanceWarningMessage keeps a latched off-route warning active through the buffer zone', () => {
+  const warningMessage = resolveDriverGuidanceWarningMessage(
+    'Route guidance is unavailable right now. Retry when your connection improves.',
+    {
+      routeDistanceMeters: 55,
+      isWarningVisible: false,
+      isWarningClearReady: false,
+      warningMessage: 'You seem to be off route. Rejoin the highlighted corridor when safe.',
+    },
+    true,
+  );
+
+  assert.equal(
+    warningMessage,
+    'You seem to be off route. Rejoin the highlighted corridor when safe.',
+  );
+});
+
+test('appendDriverInMotionInteractionTimestamp ignores repeated touch events from the same gesture', () => {
+  const interactionTimestamps = appendDriverInMotionInteractionTimestamp(
+    [
+      Date.parse('2026-06-12T12:00:00.000Z'),
+    ],
+    Date.parse('2026-06-12T12:00:00.600Z'),
+  );
+
+  assert.deepEqual(interactionTimestamps, [
+    Date.parse('2026-06-12T12:00:00.000Z'),
+  ]);
+});
+
+test('appendDriverInMotionInteractionTimestamp prunes stale entries and appends a later distinct interaction', () => {
+  const interactionTimestamps = appendDriverInMotionInteractionTimestamp(
+    [
+      Date.parse('2026-06-12T11:59:50.000Z'),
+      Date.parse('2026-06-12T11:59:54.000Z'),
+    ],
+    Date.parse('2026-06-12T12:00:00.500Z'),
+  );
+
+  assert.deepEqual(interactionTimestamps, [
+    Date.parse('2026-06-12T11:59:54.000Z'),
+    Date.parse('2026-06-12T12:00:00.500Z'),
+  ]);
+});
+
+test('resolveDriverInMotionSafetyWarningState triggers when the live driver is moving and keeps tapping the screen', () => {
+  const warningState = resolveDriverInMotionSafetyWarningState({
+    locationStatus: 'live',
+    speedKph: 18,
+    interactionTimestamps: [
+      Date.parse('2026-06-12T11:59:54.000Z'),
+      Date.parse('2026-06-12T11:59:57.000Z'),
+      Date.parse('2026-06-12T11:59:59.000Z'),
+    ],
+    lastWarningAtMs: null,
+    now: Date.parse('2026-06-12T12:00:00.000Z'),
+  });
+
+  assert.equal(warningState.interactionCount, 3);
+  assert.equal(warningState.isInteractionBurst, true);
+  assert.equal(warningState.isCooldownActive, false);
+  assert.equal(warningState.shouldTriggerWarning, true);
+  assert.equal(
+    warningState.warningMessage,
+    'You are moving. Avoid using the screen until it is safe.',
+  );
+});
+
+test('resolveDriverInMotionSafetyWarningState keeps the warning visible through its cooldown window', () => {
+  const warningState = resolveDriverInMotionSafetyWarningState({
+    locationStatus: 'live',
+    speedKph: 22,
+    interactionTimestamps: [
+      Date.parse('2026-06-12T11:59:58.000Z'),
+    ],
+    lastWarningAtMs: Date.parse('2026-06-12T11:59:52.000Z'),
+    now: Date.parse('2026-06-12T12:00:00.000Z'),
+  });
+
+  assert.equal(warningState.interactionCount, 1);
+  assert.equal(warningState.isInteractionBurst, false);
+  assert.equal(warningState.isCooldownActive, true);
+  assert.equal(warningState.shouldTriggerWarning, false);
+  assert.equal(
+    warningState.warningMessage,
+    'You are moving. Avoid using the screen until it is safe.',
+  );
+});
+
+test('resolveDriverInMotionSafetyWarningState clears after the cooldown ends when the rapid interaction burst stops', () => {
+  const warningState = resolveDriverInMotionSafetyWarningState({
+    locationStatus: 'live',
+    speedKph: 21,
+    interactionTimestamps: [
+      Date.parse('2026-06-12T11:59:42.000Z'),
+      Date.parse('2026-06-12T11:59:45.000Z'),
+    ],
+    lastWarningAtMs: Date.parse('2026-06-12T11:59:40.000Z'),
+    now: Date.parse('2026-06-12T12:00:00.000Z'),
+  });
+
+  assert.equal(warningState.interactionCount, 0);
+  assert.equal(warningState.isInteractionBurst, false);
+  assert.equal(warningState.isCooldownActive, false);
+  assert.equal(warningState.shouldTriggerWarning, false);
+  assert.equal(warningState.warningMessage, null);
+});
+
+test('resolveDriverInMotionSafetyWarningState stays quiet when the trip is not live or the driver is moving too slowly', () => {
+  const staleWarningState = resolveDriverInMotionSafetyWarningState({
+    locationStatus: 'stale',
+    speedKph: 24,
+    interactionTimestamps: [
+      Date.parse('2026-06-12T11:59:54.000Z'),
+      Date.parse('2026-06-12T11:59:56.000Z'),
+      Date.parse('2026-06-12T11:59:58.000Z'),
+    ],
+    lastWarningAtMs: null,
+    now: Date.parse('2026-06-12T12:00:00.000Z'),
+  });
+  const slowWarningState = resolveDriverInMotionSafetyWarningState({
+    locationStatus: 'live',
+    speedKph: 8,
+    interactionTimestamps: [
+      Date.parse('2026-06-12T11:59:54.000Z'),
+      Date.parse('2026-06-12T11:59:56.000Z'),
+      Date.parse('2026-06-12T11:59:58.000Z'),
+    ],
+    lastWarningAtMs: null,
+    now: Date.parse('2026-06-12T12:00:00.000Z'),
+  });
+
+  assert.equal(staleWarningState.shouldTriggerWarning, false);
+  assert.equal(staleWarningState.warningMessage, null);
+  assert.equal(slowWarningState.shouldTriggerWarning, false);
+  assert.equal(slowWarningState.warningMessage, null);
+});
+
+test('resolveDriverActiveWarningMessage gives the in-motion safety warning priority over route guidance copy', () => {
+  const warningMessage = resolveDriverActiveWarningMessage(
+    'You are moving. Avoid using the screen until it is safe.',
+    'Route guidance is unavailable right now. Retry when your connection improves.',
+    {
+      routeDistanceMeters: 95,
+      isWarningVisible: true,
+      isWarningClearReady: false,
+      warningMessage: 'You seem to be off route. Rejoin the highlighted corridor when safe.',
+    },
+    true,
+  );
+
+  assert.equal(
+    warningMessage,
+    'You are moving. Avoid using the screen until it is safe.',
+  );
 });
 
 test('shouldRefreshDriverGuidance ignores minor movement along the same guidance path', () => {

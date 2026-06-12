@@ -156,6 +156,29 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
   },
+  referenceActionButton: {
+    minHeight: 28,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  referenceActionButtonDisabled: {
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  referenceActionText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#10b981',
+  },
+  referenceActionTextDisabled: {
+    color: '#94a3b8',
+  },
   availabilityPill: {
     minHeight: 30,
     borderRadius: 10,
@@ -228,6 +251,64 @@ export const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#10b981',
   },
+  fareSelectionCard: {
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  fareSelectionRow: {
+    gap: 8,
+  },
+  fareSelectionLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#64748b',
+    textTransform: 'uppercase',
+  },
+  fareStopButtonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  fareStopButton: {
+    minHeight: 36,
+    maxWidth: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    justifyContent: 'center',
+  },
+  fareStopButtonActive: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  fareStopButtonDisabled: {
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f1f5f9',
+  },
+  fareStopButtonText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    color: '#047857',
+  },
+  fareStopButtonTextActive: {
+    color: '#ffffff',
+  },
+  fareStopButtonTextDisabled: {
+    color: '#94a3b8',
+  },
+  fareSelectionEmptyText: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
   fareCard: {
     minHeight: 82,
     borderRadius: 8,
@@ -253,6 +334,17 @@ export const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '900',
     color: '#ffffff',
+  },
+  fareAmountPending: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  fareSupportText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+    color: '#d1fae5',
   },
   fareToggleRow: {
     flexDirection: 'row',

@@ -63,7 +63,6 @@ function buildVehicle(input: Partial<VehicleVisibilityInput> = {}): VehicleVisib
     routeLabel: mainRoute.label,
     recordedAt: nowIso,
     speedKph: 20,
-    fare: '15',
     ...input,
   };
 }
@@ -121,11 +120,11 @@ test('buildCommuterVisibleVehicles returns vehicles that can still pass the comm
     visibleVehicles.map((vehicle) => vehicle.id),
     ['approaching'],
   );
-  assert.equal(visibleVehicles[0].etaMinutes > 0, true);
+  assert.equal((visibleVehicles[0].etaMinutes ?? 0) > 0, true);
   assert.equal(visibleVehicles[0].distanceMeters > 0, true);
 });
 
-test('buildCommuterVisibleVehicles hides stale vehicles and uses fallback ETA when speed is missing', () => {
+test('buildCommuterVisibleVehicles hides stale vehicles and leaves ETA unavailable when speed is missing', () => {
   const visibleVehicles = buildCommuterVisibleVehicles({
     routes: [mainRoute],
     vehicles: [
@@ -146,7 +145,7 @@ test('buildCommuterVisibleVehicles hides stale vehicles and uses fallback ETA wh
     visibleVehicles.map((vehicle) => vehicle.id),
     ['missing-speed'],
   );
-  assert.equal(visibleVehicles[0].etaMinutes > 0, true);
+  assert.equal(visibleVehicles[0].etaMinutes, null);
 });
 
 test('buildCommuterVisibleVehicles uses the commuter presence route ids as the visibility scope', () => {

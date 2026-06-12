@@ -14,6 +14,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/activeTrips/$(driverId);
     }
 
+    function commuterPresencePath(commuterId) {
+      return /databases/$(database)/documents/commuterPresence/$(commuterId);
+    }
+
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
@@ -62,12 +66,18 @@ service cloud.firestore {
       return value == null || (value is int && value >= 0);
     }
 
+    function validOptionalLocationId(value) {
+      return value == null || value is string;
+    }
+
     function validActiveTripShape(data, driverId) {
       return data.driverId == driverId
         && data.routeId is string
         && data.originTerminalId is string
         && data.destinationTerminalId is string
         && data.originTerminalId != data.destinationTerminalId
+        && validOptionalLocationId(data.originLocationId)
+        && validOptionalLocationId(data.destinationLocationId)
         && data.status == 'active'
         && data.startedAt is string
         && data.updatedAt is string
@@ -105,6 +115,16 @@ service cloud.firestore {
         && get(activeTripPath(request.auth.uid)).data.routeId == routeId;
     }
 
+    function commuterCanReadVehicleLocation() {
+      return isCommuter()
+        && exists(commuterPresencePath(request.auth.uid))
+        && get(commuterPresencePath(request.auth.uid)).data.nearbyRouteIds is list
+        && resource.data.routeId is string
+        && get(commuterPresencePath(request.auth.uid)).data.nearbyRouteIds.hasAny([
+          resource.data.routeId
+        ]);
+    }
+
     function ownerCanUpdateActiveTripProgress(driverId) {
       return isDriver()
         && isOwner(driverId)
@@ -113,6 +133,8 @@ service cloud.firestore {
         && request.resource.data.routeId == resource.data.routeId
         && request.resource.data.originTerminalId == resource.data.originTerminalId
         && request.resource.data.destinationTerminalId == resource.data.destinationTerminalId
+        && request.resource.data.originLocationId == resource.data.originLocationId
+        && request.resource.data.destinationLocationId == resource.data.destinationLocationId
         && request.resource.data.status == resource.data.status
         && request.resource.data.startedAt == resource.data.startedAt
         && request.resource.data.keys().hasOnly([
@@ -120,6 +142,8 @@ service cloud.firestore {
           'routeId',
           'originTerminalId',
           'destinationTerminalId',
+          'originLocationId',
+          'destinationLocationId',
           'routeProgressSegmentIndex',
           'status',
           'startedAt',
@@ -339,7 +363,8 @@ service cloud.firestore {
     }
 
     match /activeTrips/{driverId} {
-      allow read: if signedIn();
+      allow get: if (isDriver() && isOwner(driverId)) || isAdmin();
+      allow list: if isAdmin();
 
       allow create: if isDriver()
         && isOwner(driverId)
@@ -349,6 +374,8 @@ service cloud.firestore {
           'routeId',
           'originTerminalId',
           'destinationTerminalId',
+          'originLocationId',
+          'destinationLocationId',
           'routeProgressSegmentIndex',
           'status',
           'startedAt',
@@ -362,7 +389,11 @@ service cloud.firestore {
     }
 
     match /vehicleLocations/{driverId} {
-      allow read: if signedIn();
+      allow get: if isAdmin()
+        || (isDriver() && isOwner(driverId) && resource.data.driverId == request.auth.uid)
+        || commuterCanReadVehicleLocation();
+
+      allow list: if isAdmin() || commuterCanReadVehicleLocation();
 
       allow create, update: if ((isDriver() && isOwner(driverId)) || isAdmin())
         && request.resource.data.driverId == driverId

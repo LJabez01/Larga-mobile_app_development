@@ -29,7 +29,6 @@ export interface VehicleVisibilityInput {
   routeLabel: string;
   recordedAt: string;
   speedKph: number | null;
-  fare: string;
 }
 
 export interface CommuterVisibleVehicle {
@@ -39,10 +38,9 @@ export interface CommuterVisibleVehicle {
   routeId: string;
   routeLabel: string;
   recordedAt: string;
-  fare: string;
   speedKph: number | null;
   distanceMeters: number;
-  etaMinutes: number;
+  etaMinutes: number | null;
 }
 
 export interface DriverVisibleCommuter {
@@ -56,7 +54,6 @@ export interface DriverVisibleCommuter {
 
 export const COMMUTER_ROUTE_PROXIMITY_THRESHOLD_METERS = 180;
 export const COMMUTER_PRESENCE_FRESHNESS_WINDOW_MS = 2 * 60 * 1000;
-export const COMMUTER_ETA_FALLBACK_SPEED_KPH = 18;
 
 // Timestamp Parser - converts persisted ISO timestamps into comparable millisecond values.
 function parseTimestampMs(value: string) {
@@ -168,11 +165,31 @@ function getRouteDistanceBetweenProjections(
 
 // ETA Estimator - converts route distance and live speed into a commuter-friendly arrival estimate.
 function getEtaMinutes(distanceMeters: number, speedKph: number | null) {
-  const usableSpeedKph = typeof speedKph === 'number' && Number.isFinite(speedKph) && speedKph >= 5
-    ? speedKph
-    : COMMUTER_ETA_FALLBACK_SPEED_KPH;
+  if (
+    typeof speedKph !== 'number'
+    || !Number.isFinite(speedKph)
+    || speedKph < 5
+  ) {
+    return null;
+  }
 
-  return Math.max(1, Math.ceil((distanceMeters / 1000) / usableSpeedKph * 60));
+  return Math.max(1, Math.ceil((distanceMeters / 1000) / speedKph * 60));
+}
+
+function compareEtaMinutes(leftEtaMinutes: number | null, rightEtaMinutes: number | null) {
+  if (leftEtaMinutes === null && rightEtaMinutes === null) {
+    return 0;
+  }
+
+  if (leftEtaMinutes === null) {
+    return 1;
+  }
+
+  if (rightEtaMinutes === null) {
+    return -1;
+  }
+
+  return leftEtaMinutes - rightEtaMinutes;
 }
 
 // Nearby Route Finder - returns active routes close enough to the commuter reference point.
@@ -279,12 +296,11 @@ export function buildCommuterVisibleVehicles({
       routeId: vehicle.routeId,
       routeLabel: vehicle.routeLabel,
       recordedAt: vehicle.recordedAt,
-      fare: vehicle.fare,
       speedKph: vehicle.speedKph,
       distanceMeters,
       etaMinutes: getEtaMinutes(distanceMeters, vehicle.speedKph),
     }];
-  }).sort((left, right) => left.etaMinutes - right.etaMinutes);
+  }).sort((left, right) => compareEtaMinutes(left.etaMinutes, right.etaMinutes));
 }
 
 // Driver Commuter Visibility - filters waiting commuters to the route segment still ahead of the driver.

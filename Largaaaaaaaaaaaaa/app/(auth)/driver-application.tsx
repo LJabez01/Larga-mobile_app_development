@@ -72,7 +72,7 @@ export default function DriverApplicationScreen() {
           return;
         }
 
-        setScreenError(error instanceof Error ? error.message : 'Could not load your driver application.');
+        setScreenError(error instanceof Error ? error.message : 'We could not load your driver application.');
         setIsLoading(false);
       });
 
@@ -103,7 +103,7 @@ export default function DriverApplicationScreen() {
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
 
     if (galleryStatus !== 'granted' || cameraStatus !== 'granted') {
-      Alert.alert('Permission required', 'Camera and photo library access are required to upload an ID.');
+      Alert.alert('Permission needed', 'Allow camera and photo access to upload your ID.');
       return;
     }
 
@@ -171,7 +171,7 @@ export default function DriverApplicationScreen() {
       Alert.alert('Application updated', 'Your corrected driver application is back in the review queue.');
       router.replace('/pending-access' as Href);
     } catch (error) {
-      setScreenError(error instanceof Error ? error.message : 'Could not save your driver application.');
+      setScreenError(error instanceof Error ? error.message : 'We could not save your driver application. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
