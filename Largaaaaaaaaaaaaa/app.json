@@ -32,12 +32,13 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.larga.app",
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "POST_NOTIFICATIONS",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -73,8 +74,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8a6cf3a2-0ed7-46d1-8c63-54a804e62b9d"
+        "projectId": "2e90e008-1839-46fd-a4a6-cc5788b8b931"
       }
-    }
+    },
+    "owner": "rodutalester"
   }
 }
