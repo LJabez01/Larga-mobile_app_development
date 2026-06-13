@@ -1,5 +1,6 @@
 // About Screen - presents the app background and general information.
 import Feather from "@expo/vector-icons/Feather";
+import { useState } from "react";
 import {
     ScrollView,
     StyleSheet,
@@ -8,12 +9,18 @@ import {
     View,
 } from "react-native";
 
+import LegalDocumentModal from "@/components/legal/LegalDocumentModal";
+import { LARGA_PRIVACY_NOTICE, LARGA_TERMS } from "@/lib/legal/legal-content";
+
 type Props = {
   onBack: () => void;
 };
 
 // About Screen - presents app background sections and a back action.
 export default function AboutUsScreen({ onBack }: Props) {
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+
   const sections = [
     {
       title: "Our Mission",
@@ -56,18 +63,25 @@ export default function AboutUsScreen({ onBack }: Props) {
           <Text style={styles.appName}>Larga</Text>
           <Text style={styles.appVersion}>Version 2.4.1</Text>
           <View style={styles.appLinks}>
-            <TouchableOpacity style={styles.appLink}>
-              <Text style={styles.appLinkText}>Terms of Service</Text>
+            <TouchableOpacity style={styles.appLink} onPress={() => setShowTerms(true)}>
+              <Text style={styles.appLinkText}>Terms and Conditions</Text>
             </TouchableOpacity>
             <View style={styles.linkDot} />
-            <TouchableOpacity style={styles.appLink}>
-              <Text style={styles.appLinkText}>Privacy Policy</Text>
+            <TouchableOpacity style={styles.appLink} onPress={() => setShowPrivacy(true)}>
+              <Text style={styles.appLinkText}>Privacy Notice</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      <LegalDocumentModal document={LARGA_TERMS} visible={showTerms} onClose={() => setShowTerms(false)} />
+      <LegalDocumentModal
+        document={LARGA_PRIVACY_NOTICE}
+        visible={showPrivacy}
+        onClose={() => setShowPrivacy(false)}
+      />
     </View>
   );
 }

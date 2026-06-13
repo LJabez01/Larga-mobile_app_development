@@ -3,7 +3,6 @@ import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   ScrollView,
   Text,
   TextInput,
@@ -17,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ImageCropper from '../../components/ImageCropper';
 import FormErrorText from '../../components/FormErrorText';
+import LegalDocumentModal from '@/components/legal/LegalDocumentModal';
 import { getDefaultAppPath, useAppSession } from '@/components/providers/AppSessionProvider';
 import {
   MAX_USERNAME_LENGTH,
@@ -25,6 +25,7 @@ import {
   sanitizeUsernameDraft,
 } from '@/lib/domain/auth-inputs';
 import styles from './registration.styles';
+import { LARGA_PRIVACY_NOTICE, LARGA_TERMS } from '@/lib/legal/legal-content';
 import { validateRegistrationForm, type RegistrationRole, type VehicleType } from '../../validations/validation';
 
 const PRIMARY_COLOR = '#10B981';
@@ -487,16 +488,43 @@ export default function CreateAccountScreen() {
           ) : null}
 
           <View style={styles.section}>
-            <TouchableOpacity style={styles.checkboxRow} onPress={() => setShowTerms(true)} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setAgreed((currentValue) => !currentValue)}
+              activeOpacity={0.8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: agreed }}
+              accessibilityLabel="Agree to the LARGA Terms and acknowledge the Privacy Notice"
+            >
               <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
                 {agreed && <Ionicons name="checkmark" size={14} color="#fff" />}
               </View>
-              <Text style={styles.termsText}>I agree to the Terms and Conditions and Privacy Policy</Text>
+              <Text style={styles.termsText}>
+                I have read and agree to the Terms and Conditions and acknowledge the Privacy Notice.
+              </Text>
             </TouchableOpacity>
+            <View style={styles.legalLinksRow}>
+              <TouchableOpacity onPress={() => setShowTerms(true)} activeOpacity={0.75}>
+                <Text style={styles.termsLink}>Read Terms and Conditions</Text>
+              </TouchableOpacity>
+              <Text style={styles.legalLinksSeparator}>•</Text>
+              <View style={styles.legalLinksSeparatorDot} />
+              <TouchableOpacity onPress={() => setShowPrivacy(true)} activeOpacity={0.75}>
+                <Text style={styles.termsLink}>Read Privacy Notice</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.legalConsentHint}>
+              Closing either document does not grant consent. You must select the checkbox yourself before creating an account.
+            </Text>
             {submitted && <FormErrorText error={validation.fieldErrors?.agreed} />}
           </View>
 
-          <TouchableOpacity style={styles.signUpButton} activeOpacity={0.85} onPress={handleCreateAccount}>
+          <TouchableOpacity
+            style={[styles.signUpButton, isSubmitting && styles.signUpButtonDisabled]}
+            activeOpacity={0.85}
+            onPress={handleCreateAccount}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? (
               <ActivityIndicator color="#fff" />
             ) : (
@@ -528,72 +556,12 @@ export default function CreateAccountScreen() {
         aspectRatio={{ width: 85, height: 54 }}
       />
 
-      <Modal visible={showTerms} animationType="slide" transparent={false}>
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              onPress={() => {
-                setShowTerms(false);
-                setShowPrivacy(true);
-              }}
-              style={styles.closeBtn}
-            >
-              <Ionicons name="close" size={24} color="#111827" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Terms and Conditions</Text>
-            <View style={styles.closeBtn} />
-          </View>
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-            <Text style={styles.modalText}>
-              LARGA account creation requires accurate personal information and lawful use of the platform.
-              Driver-facing access remains subject to separate review and supporting document verification.
-            </Text>
-            <Text style={styles.modalText}>
-              Users must not impersonate another person, submit forged documents, or attempt to bypass review,
-              routing, or role restrictions implemented by the system.
-            </Text>
-            <Text style={styles.modalText}>
-              Continued use of the app means you understand that commuter, driver, and admin access may have
-              different activation requirements depending on the current implementation stage.
-            </Text>
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      <Modal visible={showPrivacy} animationType="slide" transparent={false}>
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              onPress={() => {
-                setShowPrivacy(false);
-                setAgreed(true);
-              }}
-              style={styles.closeBtn}
-            >
-              <Ionicons name="close" size={24} color="#111827" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Privacy Policy</Text>
-            <View style={styles.closeBtn} />
-          </View>
-          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-            <Text style={styles.modalText}>
-              LARGA collects account, contact, and role-application information needed to authenticate users and
-              review protected access requests.
-            </Text>
-            <Text style={styles.modalText}>
-              Uploaded driver identification images are intended for verification workflows and should only be
-              submitted when the user understands that driver approval is still controlled separately from public
-              account creation.
-            </Text>
-            <Text style={styles.modalText}>
-              By continuing, you acknowledge that stored information may be used to support account safety, role
-              review, route operations, and platform support.
-            </Text>
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+      <LegalDocumentModal document={LARGA_TERMS} visible={showTerms} onClose={() => setShowTerms(false)} />
+      <LegalDocumentModal
+        document={LARGA_PRIVACY_NOTICE}
+        visible={showPrivacy}
+        onClose={() => setShowPrivacy(false)}
+      />
     </SafeAreaView>
   );
 }

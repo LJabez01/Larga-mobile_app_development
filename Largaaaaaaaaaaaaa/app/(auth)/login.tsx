@@ -150,7 +150,12 @@ export default function LoginScreen() {
           <Text style={styles.forgot}>Forgot password?</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.loginButton} onPress={handleLogin} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[styles.loginButton, isSubmitting && styles.loginButtonDisabled]}
+          onPress={handleLogin}
+          activeOpacity={0.85}
+          disabled={isSubmitting}
+        >
           {isSubmitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
@@ -219,6 +224,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 10,
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
   },
   loginText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   footerRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, alignItems: 'center' },

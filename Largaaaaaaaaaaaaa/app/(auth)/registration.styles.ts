@@ -197,6 +197,31 @@ export default StyleSheet.create({
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
+  legalLinksRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: -12,
+    marginLeft: 34,
+  },
+  legalLinksSeparator: {
+    display: 'none',
+  },
+  legalLinksSeparatorDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    color: '#9CA3AF',
+    backgroundColor: '#9CA3AF',
+  },
+  legalConsentHint: {
+    marginTop: 10,
+    marginLeft: 34,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#6B7280',
+  },
   signUpButton: {
     backgroundColor: PRIMARY_COLOR,
     borderRadius: 12,
@@ -211,6 +236,9 @@ export default StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  signUpButtonDisabled: {
+    opacity: 0.7,
   },
   signUpText: {
     color: '#fff',
@@ -234,48 +262,5 @@ export default StyleSheet.create({
     color: PRIMARY_COLOR,
     fontWeight: '700',
     fontSize: 14,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: -0.3,
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-  },
-  modalSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: PRIMARY_COLOR,
-    marginBottom: 12,
-    marginTop: 20,
-  },
-  modalText: {
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 22,
-    marginBottom: 16,
   },
 });

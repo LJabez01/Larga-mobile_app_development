@@ -32,6 +32,7 @@ import type {
   SignInInput,
 } from '@/services/contracts/auth';
 import { createAuthSnapshotStore } from '@/services/auth/auth-snapshot-store';
+import { createRegistrationProvisioningGate } from '@/services/auth/registration-provisioning';
 import { createDriverApplication } from '@/services/driver-applications/firebase-driver-applications';
 
 interface FirebaseUserDocument {
@@ -49,6 +50,7 @@ interface FirebaseUserDocument {
 
 let subscribed = false;
 const authSnapshotStore = createAuthSnapshotStore();
+const registrationProvisioning = createRegistrationProvisioningGate();
 
 // Snapshot Update - stores the latest auth state and immediately broadcasts it.
 function updateSnapshot(snapshot: AuthSnapshot): AuthSnapshot {
@@ -132,6 +134,12 @@ function ensureSubscribed() {
     }
 
     try {
+      await registrationProvisioning.wait();
+
+      if (auth.currentUser?.uid !== user.uid) {
+        return;
+      }
+
       const userDoc = await ensureUserDocument(user);
       updateSnapshot({
         status: 'signedIn',
@@ -278,47 +286,49 @@ export const firebaseAuthService: AuthService = {
   // Firebase Register - creates the auth user, profile, and driver application when needed.
   async register(input: RegisterInput) {
     ensureSubscribed();
-    const normalizedDisplayName = normalizeUsernameInput(input.displayName);
-    const normalizedPassword = normalizePasswordInput(input.password);
-    const credential = await createUserWithEmailAndPassword(
-      auth,
-      input.email.trim(),
-      normalizedPassword,
-    );
+    return registrationProvisioning.run(async () => {
+      const normalizedDisplayName = normalizeUsernameInput(input.displayName);
+      const normalizedPassword = normalizePasswordInput(input.password);
+      const credential = await createUserWithEmailAndPassword(
+        auth,
+        input.email.trim(),
+        normalizedPassword,
+      );
 
-    try {
-      if (normalizedDisplayName) {
-        await updateProfile(credential.user, { displayName: normalizedDisplayName });
+      try {
+        if (normalizedDisplayName) {
+          await updateProfile(credential.user, { displayName: normalizedDisplayName });
+        }
+
+        const timestamp = new Date().toISOString();
+        const roleState = getRoleStateFromIntent(input.requestedRole);
+        const userDoc: FirebaseUserDocument = {
+          uid: credential.user.uid,
+          email: credential.user.email ?? input.email.trim(),
+          displayName: resolveDisplayName(credential.user, normalizedDisplayName),
+          phoneNumber: null,
+          approvedRoles: roleState.approvedRoles,
+          pendingRoleRequests: roleState.pendingRoleRequests,
+          primaryRole: roleState.primaryRole,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+
+        await setDoc(doc(db, 'users', credential.user.uid), userDoc);
+
+        if (roleState.pendingRoleRequests.includes('driver')) {
+          await createDriverApplication(credential.user.uid, input);
+        }
+
+        return updateSnapshot({
+          status: 'signedIn',
+          session: toSession(userDoc),
+        });
+      } catch (error) {
+        await deleteUser(credential.user);
+        throw error;
       }
-
-      const timestamp = new Date().toISOString();
-      const roleState = getRoleStateFromIntent(input.requestedRole);
-      const userDoc: FirebaseUserDocument = {
-        uid: credential.user.uid,
-        email: credential.user.email ?? input.email.trim(),
-        displayName: resolveDisplayName(credential.user, normalizedDisplayName),
-        phoneNumber: null,
-        approvedRoles: roleState.approvedRoles,
-        pendingRoleRequests: roleState.pendingRoleRequests,
-        primaryRole: roleState.primaryRole,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-
-      await setDoc(doc(db, 'users', credential.user.uid), userDoc);
-
-      if (roleState.pendingRoleRequests.includes('driver')) {
-        await createDriverApplication(credential.user.uid, input);
-      }
-
-      return updateSnapshot({
-        status: 'signedIn',
-        session: toSession(userDoc),
-      });
-    } catch (error) {
-      await deleteUser(credential.user);
-      throw error;
-    }
+    });
   },
 
   // Password Reset Request - sends Firebase's reset email to the requested account.

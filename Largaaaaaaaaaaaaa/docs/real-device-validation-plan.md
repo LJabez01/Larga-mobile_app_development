@@ -36,7 +36,30 @@ Every other flow depends on a stable signed-in session. If auth hydration or rol
 
 #### Test cases
 
-##### Test 1: Commuter login
+##### Test 1: Commuter registration and immediate re-login
+Setup:
+- App fully closed
+- Stable internet connection
+- Email address not already registered in Firebase Authentication
+
+Steps:
+1. Open the app and create a commuter account.
+2. Confirm the commuter flow opens after registration.
+3. Log out.
+4. Sign in again with the same email and password.
+
+Expected result:
+- Registration succeeds without returning to the login form.
+- The account remains present after logout.
+- Re-login succeeds with the same credentials.
+- The commuter lands in the correct commuter flow.
+
+Failure signs:
+- Registration appears to succeed but the app returns to login.
+- Re-login reports `auth/invalid-credential`.
+- The commuter profile is missing or the account is deleted after registration.
+
+##### Test 2: Commuter login
 Setup:
 - App fully closed
 - Stable internet connection
@@ -56,7 +79,7 @@ Failure signs:
 - The app returns to login unexpectedly.
 - The commuter lands in the wrong role flow.
 
-##### Test 2: Driver login
+##### Test 3: Driver login
 Setup:
 - App currently at login or logged out
 
@@ -74,7 +97,7 @@ Failure signs:
 - Login form reappears unexpectedly.
 - Driver lands in commuter or pending-access flow incorrectly.
 
-##### Test 3: Restart persistence
+##### Test 4: Restart persistence
 Setup:
 - Signed in as commuter, then repeat as driver
 
@@ -94,7 +117,7 @@ Failure signs:
 - Wrong role flow is shown after restart.
 - App appears to reset and re-route incorrectly.
 
-##### Test 4: Logout correctness
+##### Test 5: Logout correctness
 Setup:
 - Signed in account
 
@@ -113,7 +136,7 @@ Failure signs:
 - Login screen does not appear.
 - Re-login behaves inconsistently.
 
-##### Test 5: Role-routing stability
+##### Test 6: Role-routing stability
 Setup:
 - Signed in account with a role-specific flow
 
@@ -143,6 +166,7 @@ Failure signs:
 
 #### Phase 1 checkpoint
 Phase 1 passes only if:
+- commuter registration and immediate re-login pass
 - commuter login passes
 - driver login passes
 - restart persistence passes
